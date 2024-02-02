@@ -1,0 +1,460 @@
+---
+title: "Census Data"
+author: " "
+date: '2023-09-08'
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Load packages and functions
+
+```{r setup_packages, warning = FALSE, message = FALSE}
+# Load Libraries
+
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(kableExtra)
+
+options(scipen=999)
+options(tigris_class = "sf")
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+palette5 <- c("#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac")
+```
+
+```{r load_key, warning = FALSE, eval = FALSE}
+census_api_key("67608da2d7728d1edc9cb636b83bb764101fe726", overwrite = TRUE)
+```
+
+```{r setup_packages, warning = FALSE, message = FALSE}
+# Create a vector of years
+years <- c(2017, 2018, 2019, 2020, 2021, 2022)
+
+# Loop through the years to load variables
+variables_list <- lapply(years, function(year) {
+  load_variables(year, "acs5", cache = TRUE)
+})
+
+# Combine the variables from different years into a single data frame
+all_variables <- do.call(rbind, variables_list)
+```
+
+
+### 2017 Census Data
+
+```{r results='hide'}
+tracts17 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2017, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2017") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2018 Census Data
+
+```{r results='hide'}
+tracts18 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2018, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2018") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2019 Census Data
+
+```{r results='hide'}
+tracts19 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2019, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2019") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2020 Census Data
+
+```{r results='hide'}
+tracts20 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2020, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2020") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2021 Census Data
+
+```{r results='hide'}
+tracts21 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2021, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2021") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2022 Census Data
+
+```{r results='hide'}
+tracts22 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2022, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2022") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### Combining Census Data from 2017 - 2022
+
+```{r}
+
+allTracts <- rbind(tracts17,tracts18,tracts19,tracts20,tracts21,tracts22)
+```
+
+
+### Relating CATS Stops and Tracts
+#### Wrangling Charlotte Transit Open Data
+
+```{r}
+
+routes <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/Census/Bus_Routes.geojson")
+
+hlt <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/Census/Bus_Stops_With_Frequency_HLT.geojson")
+
+CATSstop <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/Census/CATS_BusStops.shp")
+```
+
+
+```{r}
+
+stopBuffer <- st_buffer(CATSstop, 2640)
+
+stopUnion <- st_union(st_buffer(CATSstop, 2640))
+
+CATSBuffer <- 
+  rbind(
+     stopBuffer %>%
+      mutate(Legend = "Buffer") %>%
+      dplyr::select(Legend),
+     stopUnion %>%
+      st_sf() %>%
+      mutate(Legend = "Unioned Buffer"))
+```
+
+
+```{r}
+ggplot() +
+  geom_sf(data=CATSBuffer) +
+  geom_sf(data=CATSstop, show.legend = "point") +
+  facet_wrap(~Legend) + 
+  labs(caption = "Figure 1") +
+  mapTheme()
+```
+
+
+#### Using the `sf` Package for Spatial operations
+
+```{r}
+buffer <- filter(CATSBuffers, Legend=="Unioned Buffer")
+
+buffer <- st_transform(buffer, st_crs(tracts17))
+```
+
+
+#### Spatial Intersection of tracts and buffers
+
+##### Spatial Clipping with `st_intersection()` on polygons
+
+```{r}
+clip <- 
+  st_intersection(buffer, tracts17) %>%
+  dplyr::select(Workwithbus) %>%
+  mutate(Selection_Type = "Clip")
+```
+
+
+##### Spatial selection
+
+```{r spatialSelection}
+
+# Do a spatial selection to see which tracts touch the buffer
+
+# approach #1: sub-setting a spatial object with a spatial object using the '[' brackets.
+selection1 <- 
+  tracts17[buffer,] %>%
+  dplyr::select(Workwithbus) %>%
+  mutate(Selection_Type = "Spatial Selection")
+
+```
+
+
+##### Spatial intersection with with `st_centroid()` on polygon centroids
+
+```{r}
+selectCentroids <-
+  st_centroid(tracts17)[buffer,] %>%
+  st_drop_geometry() %>%
+  left_join(., dplyr::select(tracts17, GEOID), by = "GEOID") %>%
+  st_sf() %>%
+  dplyr::select(Workwithbus) %>%
+  mutate(Selection_Type = "Select by Centroids")
+```
+
+##### Plot
+
+```{r}
+intersections <- rbind(clip, selection1, selectCentroids)
+
+ggplot() +
+  geom_sf(data=intersections, aes(fill = Workwithbus)) +
+  geom_sf(data=CATSstop, show.legend = "point", size = 0.7) +
+  scale_fill_viridis_c() +
+  facet_wrap(~Selection_Type) + 
+  mapTheme()
+```
+
