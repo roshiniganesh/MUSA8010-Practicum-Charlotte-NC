@@ -1,0 +1,184 @@
+---
+title: "Census Data"
+author: " "
+date: '2023-09-08'
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Load packages and functions
+
+```{r setup_packages, warning = FALSE, message = FALSE}
+# Load Libraries
+
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(kableExtra)
+
+options(scipen=999)
+options(tigris_class = "sf")
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+palette5 <- c("#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac")
+```
+
+```{r load_key, warning = FALSE, eval = FALSE}
+census_api_key("67608da2d7728d1edc9cb636b83bb764101fe726", overwrite = TRUE)
+```
+
+```{r Base Data, message=FALSE, warning=FALSE, message=FALSE, results='hide'}
+
+# Base Data
+
+## 1. CATS Data 2017-2023
+
+dat <- 
+  st_read("C:/Users/user/Downloads/Data/AllDat.xlsx") 
+
+## 2. Data sorted by year
+
+dat_2017 <- dat%>%
+  filter(Year. == 2017)
+
+dat_2018 <- dat%>%
+  filter(Year. == 2018)
+
+dat_2019 <- dat%>%
+  filter(Year. == 2019)
+
+dat_2020 <- dat%>%
+  filter(Year. == 2020)
+
+dat_2021 <- dat%>%
+  filter(Year. == 2021)
+
+dat_2022 <- dat%>%
+  filter(Year. == 2022)
+
+dat_2023 <- dat%>%
+  filter(Year. == 2023)
+
+## 2. Data sorted by season
+
+dat_Winter <- dat%>%
+  filter(Month == "January" | Month == "February" | Month == "December")
+
+dat_Spring <- dat%>%
+  filter(Month == "March" | Month == "April" | Month == "May")
+
+dat_Summer <- dat%>%
+  filter(Month == "June" | Month == "July" | Month == "August")
+
+dat_Fall <- dat%>%
+  filter(Month == "September" | Month == "October" | Month == "November")
+
+## 2. Data sorted by month
+
+
+
+```
+
+```{r Seasonal Trends, warning=FALSE}
+
+# Create ggplot objects for each season
+a <- ggplot(dat_Winter, aes(x = Year., fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding in Winter: 2017-2023", x = "Year.", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+b <- ggplot(dat_Spring, aes(x = Year., fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding in Spring: 2017-2023", x = "Year.", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+c <- ggplot(dat_Summer, aes(x = Year., fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding in Summer: 2017-2023", x = "Year.", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+d <- ggplot(dat_Fall, aes(x = Year., fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding in Fall: 2017-2023", x = "Year.", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+# Arrange plots in a grid
+combined_plot <- grid.arrange(a, b, c, d, ncol = 2)
+
+# Print the combined plot
+print(combined_plot)
+```
+```{r Trends by Year, warning=FALSE, fig.width=8, fig.height=8}
+
+# Create ggplot objects for each season
+a <- ggplot(dat_2017, aes(x = Month, fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding: 2017", x = "Month", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+b <- ggplot(dat_2018, aes(x = Month, fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding: 2018", x = "Month", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+c <- ggplot(dat_2019, aes(x = Month, fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding: 2019", x = "Month", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+d <- ggplot(dat_2020, aes(x = Month, fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding: 2020", x = "Month", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+e <- ggplot(dat_2021, aes(x = Month, fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding: 2021", x = "Month", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+f <- ggplot(dat_2022, aes(x = Month, fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding: 2022", x = "Month", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+g <- ggplot(dat_2023, aes(x = Month, fill = Board)) +
+  geom_bar() +
+  labs(subtitle = "Passengers boarding: 2023", x = "Month", y = "Count") + 
+  plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=palette5)
+
+# Arrange plots in a grid
+combined_plot <- grid.arrange(a, b, c, d, e, f, g, ncol = 3)
+
+# Print the combined plot
+print(combined_plot)
+```
