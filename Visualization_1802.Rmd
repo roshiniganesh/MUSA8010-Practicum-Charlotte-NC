@@ -1,0 +1,160 @@
+---
+title: "Data Visualization"
+author: " "
+date: '2023-02-17'
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Load packages and functions
+
+```{r setup_packages, warning = FALSE, message = FALSE}
+# Load Libraries
+
+install.packages(c("tidyverse", "caret", "MASS", "lmtest"))
+
+library(tidyverse)
+library(caret)
+library(MASS)
+library(tidyverse)
+library(sf)
+library(spdep)
+library(caret)
+library(ckanr)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(ggcorrplot) 
+library(corrr)      
+library(kableExtra)
+library(jtools)     
+library(ggstance) 
+library(ggpubr)    
+library(broom.mixed)
+library(knitr)
+library(scales)
+
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+palette5 <- c("#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac")
+```
+
+```{r load data, warning = FALSE, eval = FALSE, results='hide', message=FALSE}
+
+bus_data <- read.csv("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/AllDat.csv")
+
+routes <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/Bus_Routes.geojson")
+
+hlt <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/Census/Bus_Stops_With_Frequency_HLT.geojson")
+
+CATSstop <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/CATS_BusStops/CATS_BusStops.shp")
+
+census <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/Census/combined.geojson")
+
+boundary <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/MecklenburgCounty_Boundary/MecklenburgCounty_Boundary.shp")
+
+```
+
+```{r data wrangling, warning = FALSE, eval = FALSE, results='hide'}
+bus_data <- bus_data %>% mutate(StopID = sprintf("%05d", Stop.ID))
+```
+
+
+### Projection
+
+```{r projection, warning = FALSE, eval = FALSE, results='hide'}
+print("CRS of busstop_data:")
+print(st_crs(bus_data))
+print("CRS of catsstop_data:")
+print(st_crs(CATSstop))
+print("CRS of routes:")
+print(st_crs(routes))
+```
+
+```{r transform, warning = FALSE, eval = FALSE, results='hide'}
+# Create simple feature (sf) objects with initial CRS
+busstop_sf <- st_as_sf(bus_data, coords = c("Longitude", "Latitude"), crs = 4326)
+catsstop_sf <- st_as_sf(CATSstop, coords = c("LONGITUDE", "LATITUDE"), crs = 2264)  # Assuming NAD 83/North Carolina (ftUS)
+
+# Reproject catsstop_sf to WGS 84 (EPSG:4326)
+catsstop_sf <- st_transform(catsstop_sf, 4326)
+boundary_sf <- st_transform(boundary, 4326)
+```
+
+
+```{r transformed projection, warning = FALSE, eval = FALSE, results='hide'}
+print("CRS of busstop_data:")
+print(st_crs(busstop_sf))
+print("CRS of catsstop_data:")
+print(st_crs(catsstop_sf))
+print("CRS of routes:")
+print(st_crs(routes))
+print("CRS of boundary:")
+print(st_crs(boundary_sf))
+```
+
+
+### Routes and Stops in Mecklenburg County
+
+```{r Routes and Stops, warning = FALSE, eval = FALSE, results='hide'}
+
+ggplot() +
+  geom_sf(data = routes, aes(color = ROUTE_NAME), size = 2) +
+  geom_sf(data = CATSstop, color = "red", size = .2) +
+  geom_sf(data = boundary_sf, fill = NA, color = "black", size = 1) +
+  
+  
+  labs(title = "Bus Routes and Stops in Mecklenburg County") +
+  
+  scale_color_viridis_d() +  
+  
+  theme_minimal() +
+  theme(
+    legend.position = "none"  
+  )
+```
+
+### APC data
+
+```{r Board, warning = FALSE, eval = FALSE, results='hide'}
+ggplot(busstop_sf) +
+  geom_sf(aes(color = Board), size = 1) +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme_minimal() +
+  labs(title = "Bus Stops", color = "Board Value")
+```
+
+
+```{r Alight, warning = FALSE, eval = FALSE, results='hide'}
+ggplot(busstop_sf) +
+  geom_sf(aes(color = Alight), size = 1) +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme_minimal() +
+  labs(title = "Bus Stops", color = "Alight Value")
+```
+
+
+### Underperform Bus Stop
+
+```{r plot routes and stops, warning = FALSE, eval = FALSE, results='hide'}
+filtered_data <- busstop_sf %>% filter(Board <= 5, Alight <= 5)
+
+filtered_plot <- ggplot(filtered_data) +
+  geom_sf(aes(color = Board + Alight), size = 1) +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme_minimal() +
+  labs(title = "Bus Stops with Board and Alight Value <= 5", color = "Combined Value")
+
+print(filtered_plot)
+```
+
+
+
