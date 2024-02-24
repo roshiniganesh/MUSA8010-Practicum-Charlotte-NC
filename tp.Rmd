@@ -1,0 +1,412 @@
+---
+title: "MUSA 8010"
+author: "Jingyi Li"
+date: "2024-02-24"
+output: html_document
+---
+
+```{r setup, include=FALSE,warning = FALSE, message = FALSE}
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(kableExtra)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+```
+
+## Load Data
+
+```{r cars}
+AllData<-read_csv("AllDat.csv") #%>% st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326)
+dat2017 <- 
+  get_acs(geography = "tract", 
+          variables = c("B08301_001E","B08301_011E",
+                        "B08201_001E","B08201_002E",
+                        "B08201_003E","B08201_004E",
+                        "B08201_005E","B08201_006E",
+                        "B08201_007E"), 
+          year=2017, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform(crs=4326) %>%
+  rename(Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E) %>%
+  mutate(pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2017")
+
+dat2018<- 
+  get_acs(geography = "tract", 
+          variables = c("B08301_001E","B08301_011E",
+                        "B08201_001E","B08201_002E",
+                        "B08201_003E","B08201_004E",
+                        "B08201_005E","B08201_006E",
+                        "B08201_007E"), 
+          year=2018, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform(crs=4326) %>%
+  rename(Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E) %>%
+  mutate(pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2018")
+dat2019<- 
+  get_acs(geography = "tract", 
+          variables = c("B08301_001E","B08301_011E",
+                        "B08201_001E","B08201_002E",
+                        "B08201_003E","B08201_004E",
+                        "B08201_005E","B08201_006E",
+                        "B08201_007E"), 
+          year=2019, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform(crs=4326) %>%
+  rename(Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E) %>%
+  mutate(pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2019")
+
+dat2020<- 
+  get_acs(geography = "tract", 
+          variables = c("B08301_001E","B08301_011E",
+                        "B08201_001E","B08201_002E",
+                        "B08201_003E","B08201_004E",
+                        "B08201_005E","B08201_006E",
+                        "B08201_007E"), 
+          year=2020, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform(crs=4326) %>%
+  rename(Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E) %>%
+  mutate(pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2020")
+
+dat2021<- 
+  get_acs(geography = "tract", 
+          variables = c("B08301_001E","B08301_011E",
+                        "B08201_001E","B08201_002E",
+                        "B08201_003E","B08201_004E",
+                        "B08201_005E","B08201_006E",
+                        "B08201_007E"), 
+          year=2021, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform(crs=4326) %>%
+  rename(Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E) %>%
+  mutate(pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2021")
+
+dat2022<- 
+  get_acs(geography = "tract", 
+          variables = c("B08301_001E","B08301_011E",
+                        "B08201_001E","B08201_002E",
+                        "B08201_003E","B08201_004E",
+                        "B08201_005E","B08201_006E",
+                        "B08201_007E"), 
+          year=2022, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform(crs=4326) %>%
+  rename(Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E) %>%
+  mutate(pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2022")
+```
+
+## Plots
+  
+```{r 2017plots, echo=FALSE, fig.height=18, fig.width=12}
+tp_vars <- c("pctworkwithbus", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+tp_titles <- c("Percent of Population Commute with Bus", "Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2017,aes(fill = (!!sym(i)))) +
+         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2017 (Census Tracts)"))
+```
+
+```{r 2018plots, echo=FALSE, fig.height=18, fig.width=12}
+tp_vars <- c("pctworkwithbus", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+tp_titles <- c("Percent of Population Commute with Bus", "Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2018,aes(fill = (!!sym(i)))) +
+         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2018 (Census Tracts)"))
+```
+
+```{r 2019plots, echo=FALSE, fig.height=18, fig.width=12}
+tp_vars <- c("pctworkwithbus", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+tp_titles <- c("Percent of Population Commute with Bus", "Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2019,aes(fill = (!!sym(i)))) +
+         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2019 (Census Tracts)"))
+```
+
+```{r 2020plots, echo=FALSE, fig.height=18, fig.width=12}
+tp_vars <- c("pctworkwithbus", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+tp_titles <- c("Percent of Population Commute with Bus", "Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2020,aes(fill = (!!sym(i)))) +
+         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2020 (Census Tracts)"))
+```
+
+```{r 2021plots, echo=FALSE, fig.height=18, fig.width=12}
+tp_vars <- c("pctworkwithbus", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+tp_titles <- c("Percent of Population Commute with Bus", "Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2021,aes(fill = (!!sym(i)))) +
+         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2021 (Census Tracts)"))
+```
+
+```{r 2022plots, echo=FALSE, fig.height=18, fig.width=12}
+tp_vars <- c("pctworkwithbus", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+tp_titles <- c("Percent of Population Commute with Bus", "Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2022,aes(fill = (!!sym(i)))) +
+         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2022 (Census Tracts)"))
+```
+
+## Histogram
+
+```{r 2017hist, echo=FALSE, fig.height=18, fig.width=12}
+car_vars <- c("pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+car_titles <- c("Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+histList <- list()
+j <- 1
+
+for(i in car_vars){
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+           geom_histogram(fill = "#54278f", color = "black") +
+           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
+  histList[[i]] <- hist
+  j<-j+1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2017"))
+
+```
+
+```{r 2018hist, echo=FALSE, fig.height=18, fig.width=12}
+car_vars <- c("pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+car_titles <- c("Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+histList <- list()
+j <- 1
+
+for(i in car_vars){
+  hist <- ggplot(data = dat2018, aes(x = !!sym(i))) +
+           geom_histogram(fill = "#54278f", color = "black") +
+           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  histList[[i]] <- hist
+  j<-j+1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2018"))
+```
+
+```{r 2019hist, echo=FALSE, fig.height=18, fig.width=12}
+car_vars <- c("pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+car_titles <- c("Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+histList <- list()
+j <- 1
+
+for(i in car_vars){
+  hist <- ggplot(data = dat2019, aes(x = !!sym(i))) +
+           geom_histogram(fill = "#54278f", color = "black") +
+           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  histList[[i]] <- hist
+  j<-j+1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2019"))
+```
+
+```{r 2020hist, echo=FALSE, fig.height=18, fig.width=12}
+car_vars <- c("pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+car_titles <- c("Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+histList <- list()
+j <- 1
+
+for(i in car_vars){
+  hist <- ggplot(data = dat2020, aes(x = !!sym(i))) +
+           geom_histogram(fill = "#54278f", color = "black") +
+           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  histList[[i]] <- hist
+  j<-j+1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2020"))
+```
+
+
+```{r 2021hist, echo=FALSE, fig.height=18, fig.width=12}
+car_vars <- c("pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+car_titles <- c("Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+histList <- list()
+j <- 1
+
+for(i in car_vars){
+  hist <- ggplot(data = dat2021, aes(x = !!sym(i))) +
+           geom_histogram(fill = "#54278f", color = "black") +
+           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  histList[[i]] <- hist
+  j<-j+1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2021"))
+```
+
+
+```{r 2022hist, echo=FALSE, fig.height=18, fig.width=12}
+car_vars <- c("pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+car_titles <- c("Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+histList <- list()
+j <- 1
+
+for(i in car_vars){
+  hist <- ggplot(data = dat2022, aes(x = !!sym(i))) +
+           geom_histogram(fill = "#54278f", color = "black") +
+           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+  histList[[i]] <- hist
+  j<-j+1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2022"))
+```
+
