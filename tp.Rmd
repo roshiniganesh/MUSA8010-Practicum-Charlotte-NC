@@ -197,7 +197,7 @@ j <- 1
 
 for(i in tp_vars){
   map <- ggplot() +
-         geom_sf(data = dat2017,aes(fill = (!!sym(i)))) +
+         geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
@@ -216,7 +216,7 @@ j <- 1
 
 for(i in tp_vars){
   map <- ggplot() +
-         geom_sf(data = dat2018,aes(fill = (!!sym(i)))) +
+         geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
@@ -235,7 +235,7 @@ j <- 1
 
 for(i in tp_vars){
   map <- ggplot() +
-         geom_sf(data = dat2019,aes(fill = (!!sym(i)))) +
+         geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
@@ -254,7 +254,7 @@ j <- 1
 
 for(i in tp_vars){
   map <- ggplot() +
-         geom_sf(data = dat2020,aes(fill = (!!sym(i)))) +
+         geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
@@ -273,7 +273,7 @@ j <- 1
 
 for(i in tp_vars){
   map <- ggplot() +
-         geom_sf(data = dat2021,aes(fill = (!!sym(i)))) +
+         geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
@@ -292,7 +292,7 @@ j <- 1
 
 for(i in tp_vars){
   map <- ggplot() +
-         geom_sf(data = dat2022,aes(fill = (!!sym(i)))) +
+         geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
@@ -312,7 +312,7 @@ histList <- list()
 j <- 1
 
 for(i in car_vars){
-  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i)) +
            geom_histogram(fill = "#54278f", color = "black") +
            labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
   histList[[i]] <- hist
