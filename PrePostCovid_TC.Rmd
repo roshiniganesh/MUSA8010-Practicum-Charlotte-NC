@@ -1,0 +1,496 @@
+```{r setup, include=FALSE}
+
+# You can set some global options for knitting chunks
+
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load some libraries
+
+library(tidyverse)
+library(sf)
+library(spdep)
+library(caret)
+library(ckanr)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(ggcorrplot) # plot correlation plot
+library(corrr)      # another way to plot correlation plot
+library(kableExtra)
+library(jtools)     # for regression model plots
+library(ggstance) # to support jtools plots
+library(ggpubr)    # plotting R^2 value on ggplot point scatter
+library(broom.mixed) # needed for effects plots
+library(tidycensus)
+library(kableExtra)
+library(stargazer)
+library(readxl)
+library(zoo)
+library(cowplot)
+library(patchwork)
+
+# functions and data directory
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+palette5 <- c("#edf8fb","#ccece6","#99d8c9","#2ca25f","#006d2c")
+palette7 <- c("white","#edf8fb","#ccece6","#99d8c9","#2ca25f","#006d2c", "black")
+red_palette <- c("#FFD3D3", "#FFA8A8", "#FF7D7D", "#FF5252", "#FF0000")
+positive_palette <- c("darkgreen", "green", "yellow", "orange", "red")
+negative_palette <- c("blue", "lightblue", "grey80", "grey60", "grey40")
+
+census_api_key("16325a5baedf1c986a182c3321f90022be22845a", overwrite = TRUE , install = TRUE)
+```
+
+## Read Data
+```{r}
+stops <- read_excel('AllDat.xlsx')
+
+bus_routes <- st_read("Data/Bus_Routes.geojson")%>%
+  st_transform('EPSG:3358')
+```
+
+```{r read_data, results='hide', message=FALSE , warning=FALSE}
+school <- st_read("Data/Schools.geojson")%>%
+  st_transform('EPSG:3358')
+
+parks <- st_read("Data/Parks.geojson")%>%
+  st_transform('EPSG:3358')
+
+groceries <-
+  st_read("Data/Grocery_Stores.geojson")%>%
+  st_transform('EPSG:3358')
+
+shoppingcen <-
+  st_read("Data/Shopping_Centers.geojson")%>%
+  st_transform('EPSG:3358')
+
+policeoffice <-
+  st_read("Data/CMPD_Police_Division_Offices.geojson") %>%
+  st_transform('EPSG:3358')
+```
+
+```{r}
+#feature engineering
+school.sf <-
+  school %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+
+parks.sf <-
+  parks %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+
+groceries.sf <-
+  groceries %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+
+shoppingcen.sf <-
+  shoppingcen %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+
+policeoffice.sf <-
+  policeoffice %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+```
+
+```{r read_data, results='hide', message=FALSE , warning=FALSE}
+silver_stops <- st_read("Data/LYNX_Silver_Line_Stations_Proposed.geojson")%>%
+  st_transform('EPSG:3358')
+
+silver_routes <- st_read("Data/LYNX_Silver_Line_Route_Proposed.geojson")%>%
+  st_transform('EPSG:3358')
+
+blue_stops <-
+  st_read("Data/LYNX_Blue_Line_Stations.geojson")%>%
+  st_transform('EPSG:3358')
+
+blue_routes <-
+  st_read("Data/LYNX_Blue_Line_Route.geojson")%>%
+  st_transform('EPSG:3358')
+
+gold_stops <-
+  st_read("Data/LYNX_Gold_Line_Stops.geojson")%>%
+  st_transform('EPSG:3358')
+
+gold_routes <-
+  st_read("Data/LYNX_Gold_Line_Route.geojson")%>%
+  st_transform('EPSG:3358')
+
+red_stops <-
+  st_read("Data/LYNX_Red_Line_Stations_Proposed.geojson")%>%
+  st_transform('EPSG:3358')
+
+red_routes <-
+  st_read("Data/LYNX_Red_Line_Route_Proposed.geojson")%>%
+  st_transform('EPSG:3358')
+```
+
+Load Census Data (I only pick some of them, please refer to the ones we are using)
+
+```{r}
+tracts20 <- 
+  get_acs(geography = "tract", 
+          variables = c('B23025_005E',"B01001_001E", "B01001_002E", "B01001_026E", "B02001_002E", "B05001_001E", "B05001_006E",
+                        "B09001_001E", "B26001_001E", "B19013_001E", "B19083_001E", "B98011_001E",
+                        "B25071_001E", "B98014_001E","B98031_001E","B25001_001E","B25002_001E",
+                        "B25010_001E", "B25018_001E","B25034_001E", "B15003_022E", "B15003_025E",
+                        "B23025_004E", "B19051_002E", "B25035_001E",
+                        "B25076_001E","B25077_001E","B25078_001E", "B19025_001E","B98032_001E", "B25056_001E", "B25058_001E","B25060_001E", "B25061_001E", "B25062_001E", "B25083_001E", "B25085_001E", "B25086_001E", "B25104_001E"), 
+          year=2022, state="NC", county = "Mecklenburg",
+          geometry=TRUE, output="wide") %>%
+  st_transform('EPSG:3358')
+```
+
+## Data Cleaning
+
+### Pre & Post Covid
+
+```{r}
+# threshold: date of covid bgan
+threshold_date <- as.Date("2020-03-01") 
+
+stops_data <- stops %>%
+  mutate(Numeric_Month = match(Month, month.name)) %>%
+  mutate(Readable_Date = as.yearmon(paste(Year, sprintf("%02d", Numeric_Month)), "%Y %m")) %>%
+  mutate(Covid_Status = ifelse(as.Date(Readable_Date) >= threshold_date, "Post", "Pre"))%>%
+  rename(Stop_Name = `Stop Name`)
+```
+
+### Calculate the increase/decrease
+
+```{r}
+average_board <- stops_data %>%
+  group_by(Stop_Name, Numeric_Month, Covid_Status) %>%
+  summarize(Avg_Board = mean(Avg_Board, na.rm = TRUE))
+
+average_board_pivoted <- pivot_wider(average_board, names_from = Covid_Status, values_from = Avg_Board)
+
+average_board_pivoted <- average_board_pivoted %>%
+  mutate(Difference = (Post - Pre)/Pre *100 ) %>%
+  select(Stop_Name, Numeric_Month, Pre, Post, Difference)
+
+average_board_pivoted <- na.omit(average_board_pivoted)
+# join the longitude and latitude data back and select the first one
+average_board_pivoted <- average_board_pivoted %>%
+  left_join(stops_data %>% select(Stop_Name, Longitude, Latitude) %>% distinct(Stop_Name, .keep_all = TRUE), by = "Stop_Name")
+```
+
+```{r}
+# Adjust the month as needed
+selected_month <- 1  
+selected_data <- average_board_pivoted %>%
+  filter(Numeric_Month == selected_month)
+
+stops_sf <- st_as_sf(selected_data, coords = c("Longitude", "Latitude"), crs = 4326)
+stops_sf <- st_transform(stops_sf, crs = 3358)  # NAD83 North Carolina
+```
+
+### All stops from 2017\~2023
+
+```{r, fig.height=8, fig.width=16}
+red_palette <- rev(red_palette)
+
+ggplot() +
+  geom_sf(data = tracts20, fill = "grey90", alpha = 0.5 , color = NA)+
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = stops_sf , aes(colour = q5(Difference)), 
+          show.legend = "point", size = .75, alpha= 0.5) +
+  scale_colour_manual(values = red_palette,
+                   labels=qBr(stops_sf ,"Difference"),
+                   name="Quintile\nBreaks (%)") +
+  labs(title = paste("Difference (%) - Month:", selected_month),
+       fill = "Difference (Post - Pre)") +
+  mapTheme()
+
+filtered_stops_sf <- stops_sf[stops_sf$Difference != -100, ]
+
+ggplot() +
+  geom_sf(data = tracts20, fill = "grey90", alpha = 0.5 , color = NA)+
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = filtered_stops_sf , aes(colour = q5(Difference)), 
+          show.legend = "point", size = .75, alpha= 0.5) +
+  scale_colour_manual(values = red_palette,
+                   labels=qBr(filtered_stops_sf ,"Difference"),
+                   name="Quintile\nBreaks (%)") +
+  labs(title = paste("Difference (%) (-100% excluded)   - Month:", selected_month),
+       fill = "Difference (Post - Pre)") +
+  mapTheme()
+
+```
+
+### Increase vs Decrease
+
+```{r, fig.height=8, fig.width=16}
+positive_stops_sf <- stops_sf[stops_sf$PositiveDifference,]
+negative_stops_sf <- stops_sf[!stops_sf$PositiveDifference,]
+
+#negative_palette <- rev(negative_palette)
+
+# positive and negative differences
+positive_plot <- ggplot(positive_stops_sf, aes(colour = q5(Difference))) +
+  geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(size = 1) +
+  scale_color_manual(values = positive_palette,
+                     labels = qBr(positive_stops_sf, "Difference"),
+                     name = "Quintile\nBreaks (%)") +
+  labs(title = paste("Positive Increase (%) - Month:", selected_month),
+       fill = "Positive Difference (Post - Pre)") +
+  mapTheme()
+
+negative_plot <- ggplot(negative_stops_sf, aes(colour = q5(Difference))) +
+  geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(size = 1) +
+  scale_color_manual(values = negative_palette,
+                     labels = qBr(negative_stops_sf, "Difference"),
+                     name = "Quintile\nBreaks (%)") +
+  labs(title = paste("Negative Decrease (%) - Month:", selected_month),
+       fill = "Negative Difference (Post - Pre)") +
+  mapTheme()
+
+combined_plot <- plot_grid(positive_plot, negative_plot, ncol = 2)
+print(combined_plot)
+
+# Exclude -100%
+filtered_negative_stops_sf <- negative_stops_sf[negative_stops_sf$Difference != -100, ]
+
+negative_plot <- ggplot(filtered_negative_stops_sf, aes(colour = q5(Difference))) +
+  geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(size = 1) +
+  scale_color_manual(values = negative_palette,
+                     labels = qBr(filtered_negative_stops_sf, "Difference"),
+                     name = "Quintile\nBreaks (%)") +
+  labs(title = paste("Negative Decrease (%) (-100% excluded) - Month:", selected_month),
+       fill = "Negative Difference (Post - Pre)") +
+  mapTheme()
+combined_plot <- plot_grid(positive_plot, negative_plot, ncol = 2)
+
+print(combined_plot)
+
+```
+
+### Top 30 underperforming stops from 2017 to 2023
+
+```{r, fig.height=8, fig.width=16}
+# filter underperforming stops
+underperforming_stops <- stops_data[stops_data$Avg_Board + stops_data$Avg_Alight < 10, ]
+underperformance_counts <- table(underperforming_stops$Stop_Name)
+
+
+top_30_stops <- names(sort(underperformance_counts, decreasing = TRUE)[1:30])
+underperforming_top_30 <- underperforming_stops[underperforming_stops$Stop_Name %in% top_30_stops, ]
+underperforming_top_30 <- underperforming_top_30 %>%
+  mutate(Total_Board_Alight = Avg_Board + Avg_Alight)
+
+# Order
+underperforming_top_30$stop_name <- factor(underperforming_top_30$Stop_Name, levels = rev(top_30_stops))
+
+stacked_bar_plot <- ggplot(underperforming_top_30, aes(x = stop_name, fill = factor(Year))) +
+  geom_bar(stat = "count", position = "stack", color = "darkgrey" ) +
+  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts",
+       x = "Bus Stop Name",
+       y = "Number of Times Underperformed",
+       fill = "Year") +
+  scale_fill_manual(values = palette7) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate x-axis labels
+print(stacked_bar_plot) 
+
+underperforming_top_30_all_sf <- st_as_sf(underperforming_top_30, coords = c("Longitude", "Latitude"), crs = 4326)
+underperforming_top_30_all_sf <- st_transform(underperforming_top_30_all_sf, crs = 3358)  # NAD83 North Carolina
+
+
+map_plot_top_30 <- ggplot() +
+  geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_30_all_sf, aes(colour = q5(Total_Board_Alight)), size = 2) +
+  scale_color_manual(values = rev(palette5),
+                     labels = qBr(underperforming_top_30_all_sf, "Total_Board_Alight"),
+                     name = "Quintile\nBreaks") +
+  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts (2017 - 2023)",
+       fill = "Avg_Board + Avg_Alight") +
+  mapTheme()
+print(map_plot_top_30) 
+
+combined_plot <- stacked_bar_plot + map_plot_top_30
+print(combined_plot)
+```
+
+### Top 30 underperforming stops in 2023
+
+```{r, fig.height=8, fig.width=16}
+# Underperforming Stops in 2023
+underperforming_stops_2023 <- stops_data[stops_data$Avg_Board + stops_data$Avg_Alight < 10 & stops_data$Year == 2023, ]
+underperformance_counts_2023 <- table(underperforming_stops_2023$Stop_Name)
+
+# Top 30 Stops for 2023
+top_30_stops_2023 <- names(sort(underperformance_counts_2023, decreasing = TRUE)[1:30])
+underperforming_top_30_2023 <- underperforming_stops_2023[underperforming_stops_2023$Stop_Name %in% top_30_stops_2023, ]
+
+# Order
+underperforming_top_30_2023$Stop_Name <- factor(underperforming_top_30_2023$Stop_Name, levels = rev(top_30_stops_2023))
+
+bar_plot_top_30_2023 <- ggplot(underperforming_top_30_2023, aes(x = Stop_Name)) +
+  geom_bar(stat = "count", fill = "#ccece6", color = "black") +
+  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts in 2023",
+       x = "Bus Stop Name",
+       y = "Number of Times Underperformed") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate x-axis labels
+print(bar_plot_top_30_2023)
+
+underperforming_top_30_2023 <- underperforming_top_30_2023 %>%
+  mutate(Total_Board_Alight = Avg_Board + Avg_Alight)
+
+
+underperforming_top_30_sf <- st_as_sf(underperforming_top_30_2023, coords = c("Longitude", "Latitude"), crs = 4326)
+underperforming_top_30_sf <- st_transform(underperforming_top_30_sf, crs = 3358)  # NAD83 North Carolina
+
+map_plot_top_30_2023 <- ggplot() +
+  geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_30_sf, aes(colour = q5(Total_Board_Alight)), size = 2) +
+  scale_color_manual(values = rev(palette5),
+                     labels = qBr(underperforming_top_30_sf, "Total_Board_Alight"),
+                     name = "Quintile\nBreaks") +
+  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts in 2023",
+       fill = "Avg_Board + Avg_Alight") +
+  mapTheme()
+print(map_plot_top_30_2023)
+
+combined_plot <- bar_plot_top_30_2023 + map_plot_top_30_2023
+print(combined_plot)
+```
+
+### 2017\~2023 vs 2023
+
+```{r, fig.height=8, fig.width=16}
+print(map_plot_top_30) 
+print(map_plot_top_30_2023)
+```
+
+```{r, fig.height=10, fig.width=8}
+print(stacked_bar_plot) 
+print(bar_plot_top_30_2023)
+```
+
+### Existing and proposed transit lines and stations
+
+```{r, fig.height=8, fig.width=16}
+
+transit <- ggplot() +
+  geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, aes(color = "Bus Route"), size = 5, alpha = 0.5) +
+  geom_sf(data = blue_routes, aes(color = "Blue Line"), size = 8) +
+  geom_sf(data = blue_stops, aes(color = "Blue Line"), size = 2) +
+  geom_sf(data = gold_routes, aes(color = "Gold Line"), size = 8) +
+  geom_sf(data = gold_stops, aes(color = "Gold Line"), size = 2) +
+  geom_sf(data = silver_routes, aes(color = "Silver Line"), size = 8, linetype = "dashed") +
+  geom_sf(data = silver_stops, aes(color = "Silver Line"), size = 2, shape = 21) +
+  geom_sf(data = red_routes, aes(color = "Red Line"), size = 8, linetype = "dashed") +
+  geom_sf(data = red_stops, aes(color = "Red Line"), size = 2, shape = 21) +
+  
+  labs(title = "Existing and Proposed Transit Lines and Stops") +
+    scale_color_manual(name = "Lines",
+                     values = c("Bus Route" = "darkgrey",
+                                "Blue Line" = "#4682B4", 
+                                "Gold Line" = "#FFD700", 
+                                "Silver Line" = "purple", 
+                                "Red Line" = "#FF6347"),
+                     labels = c("Blue Line","Bus Routes", "Gold Line", "Proposed Red Line", "Proposed Silver Line")) +
+
+  mapTheme()
+
+print(transit)
+
+
+
+```
+
+### Density of Amenities
+
+```{r, fig.height=8, fig.width=16}
+A <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = school, color = "darkgrey", size = .5, alpha = 0.3) +
+  stat_density2d(data = data.frame(st_coordinates(school.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "yellow", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Schools") +
+  mapTheme()
+
+B <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = parks, color = "darkgrey", size = .5, alpha = 0.5) +
+  stat_density2d(data = data.frame(st_coordinates(parks.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "lightgreen", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Parks") +
+  mapTheme()
+
+C <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = groceries, color = "darkgrey", size = .5, alpha = 0.5) +
+  stat_density2d(data = data.frame(st_coordinates(groceries.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "orange", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Grocery Stores") +
+  mapTheme()
+
+D <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = policeoffice, color = "darkgrey", size = .5, alpha = 0.5) +
+  stat_density2d(data = data.frame(st_coordinates(policeoffice.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "blue", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Police Offices") +
+  mapTheme()
+
+E <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = shoppingcen, color = "darkgrey", size = .5, alpha = 0.5) +
+  stat_density2d(data = data.frame(st_coordinates(shoppingcen.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "pink", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Shopping Centers") +
+  mapTheme()
+
+
+combined_maps <- A + B + C + D + E
+#combined_maps <- combined_maps / plot_layout(nrow = 2, ncol = 3)
+print(combined_maps)
+
+```
