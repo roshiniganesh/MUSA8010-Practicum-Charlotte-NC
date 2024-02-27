@@ -1217,6 +1217,9 @@ ggplot(average_pct_walk, aes(x = year, y = avg_pct_walk)) +
 
 ##### 6.1.3 Demographic Maps
 
+The majority of Mecklenburg County population resides in suburban census tract, a trend that is consistent with the number of employed individuals in the county who also live in the suburbs. However, when examining census data on the use of public transportation to commute to work, a significant proportion is concentrated in the city center and expanded to the south. This can be correlated with census data on the prevalence of working from home, which tends to be dispersed in suburban areas situated relatively farther away from the city center
+
+
 ```{r, echo=FALSE, fig.height=18, fig.width=12}
 tp_vars2 <- c("TotalPop", "TotalWorker", "Workwithbus", "Workfromhome" )
 tp_titles2 <- c("Total Population ", "Total Population of Worker", "Total Population Commute with Bus", "Total Population Work from Home ")
