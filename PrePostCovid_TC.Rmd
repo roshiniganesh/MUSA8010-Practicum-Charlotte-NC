@@ -37,11 +37,24 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 palette5 <- c("#edf8fb","#ccece6","#99d8c9","#2ca25f","#006d2c")
 palette7 <- c("white","#edf8fb","#ccece6","#99d8c9","#2ca25f","#006d2c", "black")
 red_palette <- c("#FFD3D3", "#FFA8A8", "#FF7D7D", "#FF5252", "#FF0000")
-positive_palette <- c("darkgreen", "green", "yellow", "orange", "red")
+positive_palette <- c("darkgreen", "green", "yellow", "#FFAB00", "red")
 negative_palette <- c("blue", "lightblue", "grey80", "grey60", "grey40")
+
+positive_paletteaccent <- c("#006d2c", "#2ca25f", "#FFCB62", "#FFAB00", "#C60500")
+negative_paletteaccent <- c("#0077B6", "#7ACFD3", "grey80", "grey60", "grey40")
+
+palettebase5 <- c("#edf8fb","#7ACFD3","#3AA8AE","#2D8388","#005357")
+palettebase7 <- c("#edf8fb","#7ACFD3","#54C1C6","#3AA8AE","#2D8388","#016F74","#005357")
+palettebase <- c("#7ACFD3","#67C8C8","#54C1C6","#41BAC0","#3AA8AE","#33969B","#2D8388","#016F74","#005357")
+paletteaccent <- c("#46AFB4","#249DA2","#01939A","#017278","#005A5E","#FFCB62","#FFBD37","#FFAB00","#C68500","#9C6900","#FF6662","#FF3C37","#FF0700","#C60500","#9C0400")
+
+red_paletteaccent <- c("#FFD3D3","#FFA8A8","#FF0700","#C60500","#9C0400")
+yellow_paletteaccent <- c("#FFE6A7","#FFBD37","#FFAB00","#C68500","#9C6900")
 
 census_api_key("16325a5baedf1c986a182c3321f90022be22845a", overwrite = TRUE , install = TRUE)
 ```
+
+
 
 ## Read Data
 ```{r}
@@ -174,7 +187,8 @@ stops_data <- stops %>%
   mutate(Numeric_Month = match(Month, month.name)) %>%
   mutate(Readable_Date = as.yearmon(paste(Year, sprintf("%02d", Numeric_Month)), "%Y %m")) %>%
   mutate(Covid_Status = ifelse(as.Date(Readable_Date) >= threshold_date, "Post", "Pre"))%>%
-  rename(Stop_Name = `Stop Name`)
+  rename(Stop_Name = `Stop Name`)%>%
+  rename(Stop_ID = `Stop ID`)
 ```
 
 ### Calculate the increase/decrease
@@ -209,14 +223,14 @@ stops_sf <- st_transform(stops_sf, crs = 3358)  # NAD83 North Carolina
 ### All stops from 2017\~2023
 
 ```{r, fig.height=8, fig.width=16}
-red_palette <- rev(red_palette)
+palettebase5_rev <- rev(palettebase5)
 
 ggplot() +
   geom_sf(data = tracts20, fill = "grey90", alpha = 0.5 , color = NA)+
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
   geom_sf(data = stops_sf , aes(colour = q5(Difference)), 
-          show.legend = "point", size = .75, alpha= 0.5) +
-  scale_colour_manual(values = red_palette,
+          show.legend = "point", size = 1, alpha= 0.5) +
+  scale_colour_manual(values = palettebase5_rev,
                    labels=qBr(stops_sf ,"Difference"),
                    name="Quintile\nBreaks (%)") +
   labs(title = paste("Difference (%) - Month:", selected_month),
@@ -229,8 +243,8 @@ ggplot() +
   geom_sf(data = tracts20, fill = "grey90", alpha = 0.5 , color = NA)+
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
   geom_sf(data = filtered_stops_sf , aes(colour = q5(Difference)), 
-          show.legend = "point", size = .75, alpha= 0.5) +
-  scale_colour_manual(values = red_palette,
+          show.legend = "point", size = 1, alpha= 0.5) +
+  scale_colour_manual(values = palettebase5_rev,
                    labels=qBr(filtered_stops_sf ,"Difference"),
                    name="Quintile\nBreaks (%)") +
   labs(title = paste("Difference (%) (-100% excluded)   - Month:", selected_month),
@@ -242,17 +256,18 @@ ggplot() +
 ### Increase vs Decrease
 
 ```{r, fig.height=8, fig.width=16}
+stops_sf$PositiveDifference <- stops_sf$Difference > 0
 positive_stops_sf <- stops_sf[stops_sf$PositiveDifference,]
 negative_stops_sf <- stops_sf[!stops_sf$PositiveDifference,]
 
-#negative_palette <- rev(negative_palette)
+yellow_paletteaccent_rev <- rev(yellor_paletteaccent)
 
 # positive and negative differences
 positive_plot <- ggplot(positive_stops_sf, aes(colour = q5(Difference))) +
   geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
   geom_sf(size = 1) +
-  scale_color_manual(values = positive_palette,
+  scale_color_manual(values = red_paletteaccent,
                      labels = qBr(positive_stops_sf, "Difference"),
                      name = "Quintile\nBreaks (%)") +
   labs(title = paste("Positive Increase (%) - Month:", selected_month),
@@ -263,7 +278,7 @@ negative_plot <- ggplot(negative_stops_sf, aes(colour = q5(Difference))) +
   geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
   geom_sf(size = 1) +
-  scale_color_manual(values = negative_palette,
+  scale_color_manual(values = yellow_paletteaccent_rev,
                      labels = qBr(negative_stops_sf, "Difference"),
                      name = "Quintile\nBreaks (%)") +
   labs(title = paste("Negative Decrease (%) - Month:", selected_month),
@@ -280,7 +295,7 @@ negative_plot <- ggplot(filtered_negative_stops_sf, aes(colour = q5(Difference))
   geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
   geom_sf(size = 1) +
-  scale_color_manual(values = negative_palette,
+  scale_color_manual(values = yellow_paletteaccent_rev,
                      labels = qBr(filtered_negative_stops_sf, "Difference"),
                      name = "Quintile\nBreaks (%)") +
   labs(title = paste("Negative Decrease (%) (-100% excluded) - Month:", selected_month),
@@ -306,15 +321,15 @@ underperforming_top_30 <- underperforming_top_30 %>%
   mutate(Total_Board_Alight = Avg_Board + Avg_Alight)
 
 # Order
-underperforming_top_30$stop_name <- factor(underperforming_top_30$Stop_Name, levels = rev(top_30_stops))
+underperforming_top_30$Stop_Name <- factor(underperforming_top_30$Stop_Name, levels = rev(top_30_stops))
 
-stacked_bar_plot <- ggplot(underperforming_top_30, aes(x = stop_name, fill = factor(Year))) +
+stacked_bar_plot <- ggplot(underperforming_top_30, aes(x = Stop_Name, fill = factor(Year))) +
   geom_bar(stat = "count", position = "stack", color = "darkgrey" ) +
   labs(title = "Top 30 Bus Stops with Highest Underperformance Counts",
        x = "Bus Stop Name",
        y = "Number of Times Underperformed",
        fill = "Year") +
-  scale_fill_manual(values = palette7) +
+  scale_fill_manual(values = palettebase7) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate x-axis labels
 print(stacked_bar_plot) 
@@ -327,7 +342,7 @@ map_plot_top_30 <- ggplot() +
   geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
   geom_sf(data = underperforming_top_30_all_sf, aes(colour = q5(Total_Board_Alight)), size = 2) +
-  scale_color_manual(values = rev(palette5),
+  scale_color_manual(values = rev(palettebase5),
                      labels = qBr(underperforming_top_30_all_sf, "Total_Board_Alight"),
                      name = "Quintile\nBreaks") +
   labs(title = "Top 30 Bus Stops with Highest Underperformance Counts (2017 - 2023)",
@@ -353,13 +368,15 @@ underperforming_top_30_2023 <- underperforming_stops_2023[underperforming_stops_
 # Order
 underperforming_top_30_2023$Stop_Name <- factor(underperforming_top_30_2023$Stop_Name, levels = rev(top_30_stops_2023))
 
-bar_plot_top_30_2023 <- ggplot(underperforming_top_30_2023, aes(x = Stop_Name)) +
-  geom_bar(stat = "count", fill = "#ccece6", color = "black") +
-  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts in 2023",
+bar_plot_top_30_2023 <- ggplot(underperforming_top_30_2023, aes(x = Stop_Name, fill = "2023")) +
+  geom_bar(stat = "count", color = "black") +
+  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts",
        x = "Bus Stop Name",
-       y = "Number of Times Underperformed") +
+       y = "Number of Times Underperformed",
+       fill = "Year") +
+  scale_fill_manual(values = c("2023" = "#7ACFD3"), name = "Year") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate x-axis labels
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 print(bar_plot_top_30_2023)
 
 underperforming_top_30_2023 <- underperforming_top_30_2023 %>%
@@ -373,7 +390,7 @@ map_plot_top_30_2023 <- ggplot() +
   geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = NA) +
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
   geom_sf(data = underperforming_top_30_sf, aes(colour = q5(Total_Board_Alight)), size = 2) +
-  scale_color_manual(values = rev(palette5),
+  scale_color_manual(values = rev(palettebase5),
                      labels = qBr(underperforming_top_30_sf, "Total_Board_Alight"),
                      name = "Quintile\nBreaks") +
   labs(title = "Top 30 Bus Stops with Highest Underperformance Counts in 2023",
@@ -439,7 +456,7 @@ A <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = N
   stat_density2d(data = data.frame(st_coordinates(school.sf)), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
                  size = 0.01, bins = 40, geom = 'polygon') +
-  scale_fill_gradient(low = "grey", high = "yellow", name = "Density") +
+  scale_fill_gradient(low = "grey", high = "#FFE6A7", name = "Density") +
   scale_alpha(range = c(0.00, 0.1), guide = "none") +
   labs(title = "Density of Schools") +
   mapTheme()
@@ -450,7 +467,7 @@ B <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = N
   stat_density2d(data = data.frame(st_coordinates(parks.sf)), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
                  size = 0.01, bins = 40, geom = 'polygon') +
-  scale_fill_gradient(low = "grey", high = "lightgreen", name = "Density") +
+  scale_fill_gradient(low = "grey", high = "#7ACFD3", name = "Density") +
   scale_alpha(range = c(0.00, 0.1), guide = "none") +
   labs(title = "Density of Parks") +
   mapTheme()
@@ -461,7 +478,7 @@ C <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = N
   stat_density2d(data = data.frame(st_coordinates(groceries.sf)), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
                  size = 0.01, bins = 40, geom = 'polygon') +
-  scale_fill_gradient(low = "grey", high = "orange", name = "Density") +
+  scale_fill_gradient(low = "grey", high = "#FFAB00", name = "Density") +
   scale_alpha(range = c(0.00, 0.1), guide = "none") +
   labs(title = "Density of Grocery Stores") +
   mapTheme()
@@ -472,7 +489,7 @@ D <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = N
   stat_density2d(data = data.frame(st_coordinates(policeoffice.sf)), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
                  size = 0.01, bins = 40, geom = 'polygon') +
-  scale_fill_gradient(low = "grey", high = "blue", name = "Density") +
+  scale_fill_gradient(low = "grey", high = "#0077B6", name = "Density") +
   scale_alpha(range = c(0.00, 0.1), guide = "none") +
   labs(title = "Density of Police Offices") +
   mapTheme()
@@ -483,7 +500,7 @@ E <- ggplot() + geom_sf(data = tracts20, fill = "grey90", alpha = 0.5, color = N
   stat_density2d(data = data.frame(st_coordinates(shoppingcen.sf)), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
                  size = 0.01, bins = 40, geom = 'polygon') +
-  scale_fill_gradient(low = "grey", high = "pink", name = "Density") +
+  scale_fill_gradient(low = "grey", high = "#FF6662", name = "Density") +
   scale_alpha(range = c(0.00, 0.1), guide = "none") +
   labs(title = "Density of Shopping Centers") +
   mapTheme()
