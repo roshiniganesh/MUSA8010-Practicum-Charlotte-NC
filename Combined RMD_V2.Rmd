@@ -99,7 +99,7 @@ On initial review, certain limitations of the data present themselves. These inc
 
 
 ```{r cars}
-stops<-read_csv("AllDat.csv")
+stops<-read_excel('AllDat.xlsx')
 bus_routes <- st_read("Data/Bus_Routes.geojson")%>%
   st_transform('EPSG:3358')
 school <- st_read("Data/Schools.geojson")%>%
@@ -687,11 +687,10 @@ allTracts_sf <- st_transform(allTracts, 3358)
 ```
 
 
-```{r Board, warning = FALSE, eval = FALSE, results='hide'}
-# Create an empty list to store subset dataframes
-subset_list <- list()
+```{r plot routes and stops, warning = FALSE, eval = FALSE, results='hide'}
+plots_list <- list()
 
-# Loop through unique route numbers
+# Plot each route with corresponding bus stops
 for (route_num in unique(routes_sf$ROUTE_NUM)) {
   # Subset the routes for the current route
   subset_routes <- routes_sf[routes_sf$ROUTE_NUM == route_num, ]
@@ -699,11 +698,18 @@ for (route_num in unique(routes_sf$ROUTE_NUM)) {
   # Subset the stops for the current route
   subset_stops <- catsstop_sf[grepl(paste("\\b", route_num, "\\b", sep = ""), catsstop_sf$routes), ]
   
-  # Combine routes and stops for the current route
-  combined_subset <- bind_rows(subset_routes, subset_stops)
+  # Plot the route
+  p <- ggplot() +
+    geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5 , color = NA)+
+    geom_sf(data = subset_routes, aes(color = as.factor(route_num)), size = 1) +
+    geom_sf(data = subset_stops, color = "red", size = .8) +
+    labs(title = paste("Bus Route and Stops - Route", route_num)) +
+    scale_color_viridis_d() +
+    theme_minimal() +
+    theme(legend.position = "none")
   
-  # Add the combined subset to the list
-  subset_list[[as.character(route_num)]] <- combined_subset
+  # Print the plot
+  print(p)
 }
 ```
 
@@ -1209,7 +1215,109 @@ ggplot(average_pct_walk, aes(x = year, y = avg_pct_walk)) +
 ```
 
 
-##### 6.1.3 Spatial Reference of Car Ownership and Commute by Bus
+##### 6.1.3 Demographic Maps
+
+```{r, echo=FALSE, fig.height=18, fig.width=12}
+tp_vars2 <- c("TotalPop", "TotalWorker", "Workwithbus", "Workfromhome" )
+tp_titles2 <- c("Total Population ", "Total Population of Worker", "Total Population Commute with Bus", "Total Population Work from Home ")
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2017 (Census Tracts)"))
+
+# plot 2018
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2018 (Census Tracts)"))
+
+# plot 2019
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2019 (Census Tracts)"))
+
+#plot 2020
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2020 (Census Tracts)"))
+
+#plot 2021
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2021 (Census Tracts)"))
+
+#plot 2022
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2022 (Census Tracts)"))
+```
+
+
+##### 6.1.4 Spatial Reference of Car Ownership and Commute by Bus
 
 ```{r, echo=FALSE, fig.height=18, fig.width=12}
 tp_vars <- c("pctworkwithbus", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
@@ -1310,7 +1418,7 @@ for(i in tp_vars){
 do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2022 (Census Tracts)"))
 ```
 
-##### 6.1.4 Histogram of Car Ownership
+##### 6.1.5 Histogram of Car Ownership
 
 ```{r, echo=FALSE, fig.height=18, fig.width=12}
 car_vars <- c("pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
@@ -1400,7 +1508,7 @@ for(i in car_vars){
 do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2022"))
 ```
 
-##### 6.1.5 Car Ownership Trend
+##### 6.1.6 Car Ownership Trend
 
 ```{r}
 average_pct_cars <- allTracts %>%
