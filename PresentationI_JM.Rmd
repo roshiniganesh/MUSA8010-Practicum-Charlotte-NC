@@ -1,0 +1,662 @@
+---
+title: "Census Data"
+author: " "
+date: '2023-09-08'
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Load packages and functions
+
+```{r setup_packages, warning = FALSE, message = FALSE}
+# Load Libraries
+
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(kableExtra)
+
+options(scipen=999)
+options(tigris_class = "sf")
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+palette5 <- c("#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac", "#001f3f")
+paletteaccent <- c("#46AFB4","#249DA2","#01939A","#017278","#005A5E","#FFCB62","#FFBD37","#FFAB00","#C68500","#9C6900","#FF6662","#FF3C37","#FF0700","#C60500","#9C0400")
+palettebase <- c("#7ACFD3","#67C8C8","#54C1C6","#41BAC0","#3AA8AE","#33969B","#2D8388","#016F74","#005357")
+palettebase7 <- c("#edf8fb","#7ACFD3","#54C1C6","#3AA8AE","#2D8388","#016F74","#005357")
+```
+
+```{r load_key, warning = FALSE, eval = FALSE}
+census_api_key("67608da2d7728d1edc9cb636b83bb764101fe726", overwrite = TRUE)
+```
+
+```{r setup_packages, warning = FALSE, message = FALSE}
+# Create a vector of years
+years <- c(2017, 2018, 2019, 2020, 2021, 2022)
+
+# Loop through the years to load variables
+variables_list <- lapply(years, function(year) {
+  load_variables(year, "acs5", cache = TRUE)
+})
+
+# Combine the variables from different years into a single data frame
+all_variables <- do.call(rbind, variables_list)
+```
+
+
+### 2017 Census Data
+
+```{r results='hide'}
+tracts17 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2017, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2017") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2018 Census Data
+
+```{r results='hide'}
+tracts18 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2018, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2018") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2019 Census Data
+
+```{r results='hide'}
+tracts19 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2019, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2019") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2020 Census Data
+
+```{r results='hide'}
+tracts20 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2020, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2020") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2021 Census Data
+
+```{r results='hide'}
+tracts21 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2021, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2021") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### 2022 Census Data
+
+```{r results='hide'}
+tracts22 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E"), 
+          year=2022, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Transporttowork = B08301_001E,
+         Workfromhome = B08111_031E,
+         Workwithbus = B08301_011E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Transporttowork > 0, Workwithbus / Transporttowork, 0),
+         pctworkfromhome = ifelse(Transporttowork > 0, Workfromhome / Transporttowork, 0),
+         year = "2022") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+
+### Combining Census Data from 2017 - 2022
+
+```{r}
+
+allTracts <- rbind(tracts17,tracts18,tracts19,tracts20,tracts21,tracts22)
+```
+
+
+### Creating geojson
+
+```{r}
+sf_allTracts <- st_as_sf(allTracts, wkt = "geometry")
+```
+
+
+### Census Data Trend
+
+```{r Trends by Year, warning=FALSE, fig.width=8, fig.height=8}
+
+a <- ggplot(allTracts, aes(x = as.factor(year), y = TotalPop, fill = as.factor(year))) +
+  geom_bar(stat = "identity", color = "transparent") +
+  labs(title = "Total Population: 2017-2022", x = "Year", y = "Total Population") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 6)) +
+  scale_fill_manual(values = palettebase)
+
+b <- ggplot(allTracts, aes(x = as.factor(year), y = TotalWorker, fill = as.factor(year))) +
+  geom_bar(stat = "identity", color = "transparent") +
+  labs(title = "Population of Worker: 2017-2022", x = "Year", y = "Total Population") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 6)) +
+  scale_fill_manual(values = palettebase)
+
+c <- ggplot(allTracts, aes(x = as.factor(year), y = Workfromhome, fill = as.factor(year))) +
+  geom_bar(stat = "identity", color = "transparent") +
+  labs(title = "Population of Work from Home: 2017-2022", x = "Year", y = "Total Population") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 6)) +
+  scale_fill_manual(values = palettebase)
+
+d <- ggplot(allTracts, aes(x = as.factor(year), y = Workwithbus, fill = as.factor(year))) +
+  geom_bar(stat = "identity", color = "transparent") +
+  labs(title = "Population of People Using Bus as Transportation to Work: 2017-2022", x = "Year", y = "Total Population") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 6)) +
+  scale_fill_manual(values = palettebase)
+
+combined_plot <- grid.arrange(a,b,c, d, ncol = 4, top = c(2, 2))
+
+print(combined_plot)
+
+```
+
+
+### Bus Transit Data
+
+```{r Load Bus Transit Data, warning = FALSE, eval = FALSE, results='hide', message=FALSE}
+
+stops <- read.csv("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/AllDat.csv")
+
+routes <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/Bus_Routes.geojson")
+
+hlt <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/Census/Bus_Stops_With_Frequency_HLT.geojson")
+
+CATSstop <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/CATS_BusStops/CATS_BusStops.shp")
+
+census <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/Census/combined.geojson")
+
+boundary <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/MecklenburgCounty_Boundary/MecklenburgCounty_Boundary.shp")
+
+```
+
+```{r data wrangling, warning = FALSE, eval = FALSE, results='hide'}
+bus_data <- stops %>% mutate(StopID = sprintf("%05d", Stop.ID))
+```
+
+### Projection
+
+```{r projection, warning = FALSE, eval = FALSE, results='hide'}
+print("CRS of busstop_data:")
+print(st_crs(bus_data))
+print("CRS of catsstop_data:")
+print(st_crs(CATSstop))
+print("CRS of routes:")
+print(st_crs(routes))
+print("CRS of allTracts:")
+print(st_crs(allTracts))
+```
+
+
+```{r transform, warning = FALSE, eval = FALSE, results='hide'}
+# Create simple feature (sf) objects with initial CRS
+busstop_sf <- st_as_sf(bus_data, coords = c("Longitude", "Latitude"), crs = 4326)
+catsstop_sf <- st_as_sf(CATSstop, coords = c("LONGITUDE", "LATITUDE"), crs = 2264)  # Assuming NAD 83/North Carolina (ftUS)
+
+# Reproject catsstop_sf to WGS 84 (EPSG:4326)
+catsstop_sf <- st_transform(catsstop_sf, 4326)
+boundary_sf <- st_transform(boundary, 4326)
+```
+
+```{r transformed projection, warning = FALSE, eval = FALSE, results='hide'}
+print("CRS of busstop_data:")
+print(st_crs(busstop_sf))
+print("CRS of catsstop_data:")
+print(st_crs(catsstop_sf))
+print("CRS of routes:")
+print(st_crs(routes))
+print("CRS of boundary:")
+print(st_crs(boundary_sf))
+```
+
+
+```{r transform, warning = FALSE, eval = FALSE, results='hide'}
+# Reproject catsstop_sf to WGS 84 (EPSG:4326)
+busstop_sf <- st_transform(busstop_sf, 3358)
+catsstop_sf <- st_transform(catsstop_sf, 3358)
+routes_sf <- st_transform(routes, 3358)
+boundary_sf <- st_transform(boundary, 3358)
+allTracts_sf <- st_transform(allTracts, 3358)
+
+```
+
+
+### Routes and Stops in Mecklenburg County
+
+```{r Routes and Stops, warning = FALSE, eval = FALSE, results='hide'}
+
+ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5 , color = NA)+
+  geom_sf(data = routes_sf, aes(color = ROUTE_NAME), size = 2) +
+  geom_sf(data = catsstop_sf, color = "red", size = .2) +
+  
+  
+  labs(title = "Bus Routes and Stops in Mecklenburg County") +
+  
+  scale_color_viridis_d() +  
+  
+  theme_minimal() +
+  theme(
+    legend.position = "none"  
+  )
+```
+
+
+### CATS Bus Routes
+
+```{r plot routes and stops, warning = FALSE, eval = FALSE, results='hide'}
+plots_list <- list()
+
+# Plot each route with corresponding bus stops
+for (route_num in unique(routes_sf$ROUTE_NUM)) {
+  # Subset the routes for the current route
+  subset_routes <- routes_sf[routes_sf$ROUTE_NUM == route_num, ]
+  
+  # Subset the stops for the current route
+  subset_stops <- catsstop_sf[grepl(paste("\\b", route_num, "\\b", sep = ""), catsstop_sf$routes), ]
+  
+  # Plot the route
+  p <- ggplot() +
+    geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5 , color = NA)+
+    geom_sf(data = subset_routes, aes(color = as.factor(route_num)), size = 1) +
+    geom_sf(data = subset_stops, color = "red", size = .8) +
+    labs(title = paste("Bus Route and Stops - Route", route_num)) +
+    scale_color_viridis_d() +
+    theme_minimal() +
+    theme(legend.position = "none")
+  
+  # Print the plot
+  print(p)
+}
+```
+
+
+
+```{r Board, warning = FALSE, eval = FALSE, results='hide'}
+# Create an empty list to store subset dataframes
+subset_list <- list()
+
+# Loop through unique route numbers
+for (route_num in unique(routes_sf$ROUTE_NUM)) {
+  # Subset the routes for the current route
+  subset_routes <- routes_sf[routes_sf$ROUTE_NUM == route_num, ]
+  
+  # Subset the stops for the current route
+  subset_stops <- catsstop_sf[grepl(paste("\\b", route_num, "\\b", sep = ""), catsstop_sf$routes), ]
+  
+  # Combine routes and stops for the current route
+  combined_subset <- bind_rows(subset_routes, subset_stops)
+  
+  # Add the combined subset to the list
+  subset_list[[as.character(route_num)]] <- combined_subset
+}
+```
+
+
+### APC data
+
+```{r Board, warning = FALSE, eval = FALSE, results='hide'}
+ggplot(busstop_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = Board), size = .5) +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme_minimal() +
+  labs(title = "Bus Stops", color = "Board Value")
+```
+
+
+```{r Alight, warning = FALSE, eval = FALSE, results='hide'}
+ggplot(busstop_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = Alight), size = .5) +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme_minimal() +
+  labs(title = "Bus Stops", color = "Alight Value")
+```
+
+
+### Underperform Bus Stop
+
+```{r underperform stops, warning = FALSE, eval = FALSE, results='hide'}
+filtered_data <- busstop_sf %>% filter(Board + Alight <= 10)
+
+filtered_plot <- ggplot(filtered_data) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5 , color = NA)+
+  geom_sf(aes(color = as.factor(Board + Alight)), size = 0.8) +
+  scale_color_manual(values = paletteaccent) +
+  theme_minimal() +
+  labs(title = "Bus Stops with Board and Alight Value <= 10", color = "Combined Board and Alight Value")
+
+print(filtered_plot)
+```
+
+### Number of Underperform Bus Stops
+
+```{r number of underperform stops, warning = FALSE, eval = FALSE, results='hide'}
+unique_stop_ids <- filtered_data %>%
+  summarise(unique_stop_ids = n_distinct(Stop.ID))
+
+print(unique_stop_ids$unique_stop_ids)
+```
+```{r number of underperform stops, warning = FALSE, eval = FALSE, results='hide'}
+stop_id_counts <- as.data.frame(table(filtered_data$Stop.ID))
+```
+
+
+### Top 30 Underperforming Stops
+
+```{r, fig.height=8, fig.width=16}
+
+# filter underperforming stops
+
+underperformance_counts <- table(filtered_data$Stop.ID)
+
+
+top_30_stops <- names(sort(underperformance_counts, decreasing = TRUE)[1:30])
+underperforming_top_30 <- filtered_data[filtered_data$Stop.ID %in% top_30_stops, ]
+underperforming_top_30 <- underperforming_top_30 %>%
+  mutate(Total_Board_Alight = Board + Alight)
+
+# Order
+underperforming_top_30$Stop.ID <- factor(underperforming_top_30$Stop.ID, levels = rev(top_30_stops))
+
+stacked_bar_plot <- ggplot(underperforming_top_30, aes(x = Stop.ID, fill = factor(Year))) +
+  geom_bar(stat = "count", position = "stack", color = "darkgrey" ) +
+  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts",
+       x = "Bus Stop Name",
+       y = "Number of Times Underperformed",
+       fill = "Year") +
+  scale_fill_manual(values = palettebase7) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate x-axis labels
+print(stacked_bar_plot) 
+
+underperforming_top_30_all_sf <- st_as_sf(underperforming_top_30, coords = c("Longitude", "Latitude"), crs = 4326)
+underperforming_top_30_all_sf <- st_transform(underperforming_top_30_all_sf, crs = 3358)  # NAD83 North Carolina
+
+
+map_plot_top_30 <- ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = routes_sf, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_30_all_sf, aes(colour = 'red'), size = 2) +
+  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts (2017 - 2023)",
+       fill = "Board + Alight") +
+  mapTheme()+
+  scale_color_manual(name = "", values = 'red', labels = "Top 30")+
+  theme(legend.position = "none")
+
+print(map_plot_top_30) 
+
+combined_plot <- stacked_bar_plot + map_plot_top_30
+print(combined_plot)
+
+```
+
