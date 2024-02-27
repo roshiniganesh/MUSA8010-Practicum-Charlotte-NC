@@ -13,10 +13,14 @@ library(kableExtra)
 library(ggplot2)
 library(grid)
 library(gridExtra)
+palettebase <- c("#7ACFD3","#67C8C8","#54C1C6","#41BAC0","#3AA8AE","#33969B","#2D8388","#016F74","#005357")
+paletteaccent <- c("#46AFB4","#249DA2","#01939A","#017278","#005A5E","#FFCB62","#FFBD37","#FFAB00","#C68500","#9C6900","#FF6662","#FF3C37","#FF0700","#C60500","#9C0400")
 ```
 
 ## Load Data
 
+  Considering car ownership is helpful to distinguish where the higher potential need for public transportation is located. Which can further help identifying which region might have higher possible ridership and which region exist the problem of underperforming.
+  
 ```{r cars}
 AllData<-read_csv("AllDat.csv") #%>% st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326)
 dat2017 <- 
@@ -198,7 +202,7 @@ j <- 1
 for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
-         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         scale_fill_gradient(low = "#7ACFD3", high = "#005357") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
   mapList[[i]] <- map
@@ -217,7 +221,7 @@ j <- 1
 for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
-         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         scale_fill_gradient(low = "#7ACFD3", high = "#005357") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
   mapList[[i]] <- map
@@ -236,7 +240,7 @@ j <- 1
 for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
-         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         scale_fill_gradient(low = "#7ACFD3", high = "#005357") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
   mapList[[i]] <- map
@@ -255,7 +259,7 @@ j <- 1
 for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
-         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         scale_fill_gradient(low = "#7ACFD3", high = "#005357") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
   mapList[[i]] <- map
@@ -274,7 +278,7 @@ j <- 1
 for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
-         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         scale_fill_gradient(low = "#7ACFD3", high = "#005357") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
   mapList[[i]] <- map
@@ -293,7 +297,7 @@ j <- 1
 for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
-         scale_fill_gradient(low = "#efedf5", high = "#54278f") + 
+         scale_fill_gradient(low = "#7ACFD3", high = "#005357") + 
          geom_point(data=AllData,aes(x=Longitude, y= Latitude), color = "black", size = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
   mapList[[i]] <- map
@@ -312,11 +316,11 @@ histList <- list()
 j <- 1
 
 for(i in car_vars){
-  hist <- ggplot(data = dat2017, aes(x = !!sym(i)) +
-           geom_histogram(fill = "#54278f", color = "black") +
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+           geom_histogram(fill = "#005357", color = "black") +
            labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
   histList[[i]] <- hist
-  j<-j+1
+  j <- j + 1
 }
 
 do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2017"))
@@ -331,8 +335,8 @@ j <- 1
 
 for(i in car_vars){
   hist <- ggplot(data = dat2018, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#54278f", color = "black") +
-           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+           geom_histogram(fill = "#005357", color = "black") +
+           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
   histList[[i]] <- hist
   j<-j+1
 }
@@ -348,8 +352,8 @@ j <- 1
 
 for(i in car_vars){
   hist <- ggplot(data = dat2019, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#54278f", color = "black") +
-           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+           geom_histogram(fill = "#005357", color = "black") +
+           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
   histList[[i]] <- hist
   j<-j+1
 }
@@ -365,8 +369,8 @@ j <- 1
 
 for(i in car_vars){
   hist <- ggplot(data = dat2020, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#54278f", color = "black") +
-           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+           geom_histogram(fill = "#005357", color = "black") +
+           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
   histList[[i]] <- hist
   j<-j+1
 }
@@ -383,8 +387,8 @@ j <- 1
 
 for(i in car_vars){
   hist <- ggplot(data = dat2021, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#54278f", color = "black") +
-           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+           geom_histogram(fill = "#005357", color = "black") +
+           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
   histList[[i]] <- hist
   j<-j+1
 }
@@ -401,12 +405,74 @@ j <- 1
 
 for(i in car_vars){
   hist <- ggplot(data = dat2022, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#54278f", color = "black") +
-           labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+           geom_histogram(fill = "#005357", color = "black") +
+           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
   histList[[i]] <- hist
   j<-j+1
 }
 
 do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2022"))
+```
+
+## Car Ownership Trend
+
+```{r trendcar, fig.height=10, fig.width=12}
+dat_combined <- bind_rows(
+  dat2017,
+  dat2018,
+  dat2019,
+  dat2020,
+  dat2021,
+  dat2022)
+
+average_pct_cars <- dat_combined %>%
+  group_by(year) %>%
+  summarise(avg_pct_0cars = mean(pctnocar),
+            avg_pct_1cars = mean(pct1car),
+            avg_pct_2cars = mean(pct2car),
+            avg_pct_3cars = mean(pct3car),
+            avg_pct_4cars = mean(pct4car),
+            avg_pct_5ormore_cars = mean(pct5car))
+
+average_pct_cars_long <- pivot_longer(average_pct_cars, 
+                                      cols = starts_with("avg_pct"), 
+                                      names_to = "Cars", 
+                                      values_to = "Percentage")
+
+plot_list <- list()
+for (i in unique(average_pct_cars_long$Cars)) {
+  num_cars <- gsub("avg_pct_", "", i)
+  num_cars <- gsub("cars", "car", num_cars)
+  subset_data <- subset(average_pct_cars_long, Cars == i)
+  plot <- ggplot(subset_data, aes(x = year, y = Percentage, group = 1)) +
+    geom_line(color = "black",linewidth=1.5) +
+    geom_point(color = "red",size=3) +
+    labs(x = "Year", 
+         y = "Average Percentage of Households",
+         title = paste("Trend of Car Ownership:", num_cars)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+    theme_minimal()
+  plot_list[[i]] <- plot
+}
+
+grid.arrange(grobs = plot_list, ncol = 2, top = "Trend of Car Ownership (2017-2022)")
+```
+
+## Commute by Bus Trend
+
+```{r}
+dat_combined$year <- as.numeric(dat_combined$year)
+average_pct_bus <- dat_combined %>%
+  group_by(year) %>%
+  summarise(avg_pct_bus = mean(pctworkwithbus))
+
+ggplot(average_pct_bus, aes(x = year, y = avg_pct_bus)) +
+  geom_line(color = "black",linewidth=1.5) +
+  geom_point(color = "red",size=3) +
+  labs(x = "Year", 
+       y = "Average Percentage of Population Commuting with Bus",
+       title = "Trend of Commuting by Bus from 2017 to 2022") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  theme_minimal()
 ```
 
