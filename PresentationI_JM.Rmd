@@ -22,6 +22,8 @@ library(tidyverse)
 library(tidycensus)
 library(sf)
 library(kableExtra)
+library(patchwork)
+library(viridis)
 
 options(scipen=999)
 options(tigris_class = "sf")
@@ -419,6 +421,74 @@ print(combined_plot)
 
 ```
 
+```{r Trends by Year, warning=FALSE, fig.width=8, fig.height=8}
+
+# Create and display a map for each year
+for (year_value in unique(allTracts_sf$year)) {
+  plot <- ggplot(allTracts_sf[allTracts_sf$year == year_value, ]) +
+    geom_sf(aes(fill = TotalPop)) +
+    labs(title = paste("Total Population: ", year_value), fill = "Total Population") +
+    theme_minimal() +
+    scale_fill_viridis(name = "Total Population") +  
+    theme(legend.position = "right")  
+
+  # Print each plot individually
+  print(plot)
+}
+```
+
+
+```{r Trends by Year, warning=FALSE, fig.width=8, fig.height=8}
+
+# Create and display a map for each year
+for (year_value in unique(allTracts_sf$year)) {
+  plotworkpop <- ggplot(allTracts_sf[allTracts_sf$year == year_value, ]) +
+    geom_sf(aes(fill = TotalWorker)) +
+    labs(title = paste("Working Population: ", year_value), fill = "Working Population") +
+    theme_minimal() +
+    scale_fill_viridis(name = "Total Working Population") +  
+    theme(legend.position = "right")
+
+  # Print each plot individually
+  print(plotworkpop)
+}
+```
+
+
+```{r Trends by Year, warning=FALSE, fig.width=8, fig.height=8}
+
+# Create and display a map for each year
+for (year_value in unique(allTracts_sf$year)) {
+  plotworkbus <- ggplot(allTracts_sf[allTracts_sf$year == year_value, ]) +
+    geom_sf(aes(fill = Workwithbus)) +
+    labs(title = paste("Working with Bus: ", year_value), fill = "Working with Bus") +
+    theme_minimal() +
+    scale_fill_viridis(name = "Total Working with Bus") +  
+    theme(legend.position = "right")
+
+  # Print each plot individually
+  print(plotworkbus)
+}
+```
+
+
+```{r Trends by Year, warning=FALSE, fig.width=8, fig.height=8}
+
+# Create and display a map for each year
+for (year_value in unique(allTracts_sf$year)) {
+  plotwfh <- ggplot(allTracts_sf[allTracts_sf$year == year_value, ]) +
+    geom_sf(aes(fill = Workfromhome)) +
+    labs(title = paste("Working from Home: ", year_value), fill = "Working from Home") +
+    theme_minimal() +
+    scale_fill_viridis(name = "Total Working from Home") +  
+    theme(legend.position = "right")
+
+  # Print each plot individually
+  print(plotwfh)
+}
+```
+
+
 
 ### Bus Transit Data
 
@@ -651,7 +721,8 @@ map_plot_top_30 <- ggplot() +
        fill = "Board + Alight") +
   mapTheme()+
   scale_color_manual(name = "", values = 'red', labels = "Top 30")+
-  theme(legend.position = "none")
+  theme(legend.position = "none")+
+  theme(plot.title = element_text(size = 12)) 
 
 print(map_plot_top_30) 
 
@@ -659,4 +730,59 @@ combined_plot <- stacked_bar_plot + map_plot_top_30
 print(combined_plot)
 
 ```
+
+
+```{r, fig.height=8, fig.width=16}
+
+# Filter underperforming stops for the year 2023
+underperformance_counts_2023 <- table(filtered_data$Stop.ID[filtered_data$Year == 2023])
+
+top_30_stops_2023 <- names(sort(underperformance_counts_2023, decreasing = TRUE)[1:30])
+underperforming_top_30_2023 <- filtered_data[filtered_data$Stop.ID %in% top_30_stops_2023 & filtered_data$Year == 2023, ]
+underperforming_top_30_2023 <- underperforming_top_30_2023 %>%
+  mutate(Total_Board_Alight = Board + Alight)
+
+# Order
+underperforming_top_30_2023$Stop.ID <- factor(underperforming_top_30_2023$Stop.ID, levels = rev(top_30_stops_2023))
+
+stacked_bar_plot_2023 <- ggplot(underperforming_top_30_2023, aes(x = Stop.ID, fill = factor(Year))) +
+  geom_bar(stat = "count", position = "stack", color = "darkgrey") +
+  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts (2023)",
+       x = "Bus Stop Name",
+       y = "Number of Times Underperformed",
+       fill = "Year") +
+  scale_fill_manual(values = palettebase7) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate x-axis labels
+
+print(stacked_bar_plot_2023)
+
+underperforming_top_30_2023_all_sf <- st_as_sf(underperforming_top_30_2023, coords = c("Longitude", "Latitude"), crs = 4326)
+underperforming_top_30_2023_all_sf <- st_transform(underperforming_top_30_2023_all_sf, crs = 3358)  # NAD83 North Carolina
+
+map_plot_top_30_2023 <- ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = routes_sf, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_30_2023_all_sf, aes(colour = 'red'), size = 2) +
+  labs(title = "Top 30 Bus Stops with Highest Underperformance Counts (2023)",
+       fill = "Board + Alight") +
+  mapTheme() +
+  scale_color_manual(name = "", values = 'red', labels = "Top 30") +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 12))
+
+print(map_plot_top_30_2023)
+
+# Combine the individual plots
+combined_plot_2023 <- stacked_bar_plot_2023 + map_plot_top_30_2023
+print(combined_plot_2023)
+
+```
+
+
+```{r number of underperform stops, warning = FALSE, eval = FALSE, results='hide'}
+stop_id_counts_2023 <- as.data.frame(table(underperforming_top_30_2023_all_sf$Stop.ID))
+```
+
+
 
