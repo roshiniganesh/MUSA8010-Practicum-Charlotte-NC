@@ -1759,15 +1759,36 @@ APE_RF = (abs(Predictions_RF - test_data_RF$Avg_ridership)) / Predictions_RF)
 RF_model
 ```
 
+#### Test if code works
+
+```{r}
+library(spgwr)
+library(spdep)
+
+first_10_rows <- head(data_2022, 10)
+first_10_rows<-as(first_10_rows,'Spatial')
+
+# Select bandwidth for GWR
+GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop , data = first_10_rows, method = "aic", adapt = TRUE)
+
+# Run GWR model
+gwr_model <- gwr(Avg_ridership ~ TotalPop,
+                 data = first_10_rows,
+                 adapt = GWRbandwidth,
+                 gweight = gwr.Gauss,
+                 hatmatrix = TRUE,
+                 se.fit = TRUE)  
+
+
+# View GWR model results
+gwr_model
+```
+
 #### GWR
 
 ```{r}
-install.packages("spgwr")
-library(spgwr)
-install.packages("spdep")
-library(spdep)
-
-data_2022 <- as(data_2022, 'Spatial')
+data_2022<-na.omit(data_2022)
+#data_2022 <- as(data_2022, 'Spatial')
 
 # Select bandwidth for GWR
 GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop+ MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, data = data_2022, method = "aic",adapt = TRUE)
@@ -1783,5 +1804,44 @@ gwr_model <- gwr(Avg_ridership ~ TotalPop+ MedHHInc + MedRent + Commutetowork + 
 
 # View GWR model results
 print(gwr_model)
+gwr_model
+```
+
+#### Reduced data size
+```{r}
+# Reduce data size and convert data to Spatial object
+set.seed(123)  
+sample_index <- sample(1:nrow(data_2022), 0.1 * nrow(data_2022)) 
+sample_data <- data_2022[sample_index, ]
+# List of percentage variables
+percentage_vars <- c("pctWhite", "pctAfricanamerican", "pctAsian", "pctOther", "pctMale", "pctFemale", "pctBachelors", "pctWorker", "pctPoverty", "pctworkwithbus", "pctworkfromhome", "pctworkbycar", "pctworkbytaxi", "pctworkbymotor", "pctworkbybike", "pctworkbywalk", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+
+# Loop through each percentage variable and cap values at 1
+for (var in percentage_vars) {
+  sample_data[[var]] <- ifelse(sample_data$TotalPop > 0, pmin(sample_data[[var]] / sample_data$TotalPop, 1), 0)
+}
+
+
+sample_data <- as(sample_data, 'Spatial')
+
+
+# Select bandwidth for GWR
+GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, data = sample_data, method = "aic", adapt = TRUE)
+
+# Median imputation of missing values 
+#sample_data$MedHHInc[is.na(sample_data$MedHHInc)] <- median(sample_data$MedHHInc, na.rm = TRUE)
+#sample_data$MedRent[is.na(sample_data$MedRent)] <- median(sample_data$MedRent, na.rm = TRUE)
+
+# Run GWR model 
+gwr_model <- 
+    gwr(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5,
+        data = sample_data,
+        adapt = GWRbandwidth,
+        gweight = gwr.Gauss,
+        hatmatrix = TRUE,
+        se.fit = TRUE) 
+
+gwr_model
+
 ```
 
