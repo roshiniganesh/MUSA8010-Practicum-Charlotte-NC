@@ -1768,6 +1768,11 @@ print(paste("p-value:", moran$p.value))
 ```{r}
 library(randomForest)
 
+# Check for missing values
+if (any(is.na(data_2022))) {
+  data_2022 <- na.omit(data_2022)  # Remove rows with missing values
+}
+
 # Split the data into training and testing sets
 set.seed(123)  # For reproducibility
 train_index <- sample(1:nrow(data_2022), 0.7 * nrow(data_2022)) 
@@ -1794,4 +1799,27 @@ print(paste("APE:", sum(APE_RF)))
 print(paste("R-squared:", rsquared_RF))
 
 ```
+
+
+
+# Check for missing values
+if (any(is.na(data_2022))) {
+  data_2022 <- na.omit(data_2022)  # Remove rows with missing values
+}
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+train_index <- sample(1:nrow(data_2022), 0.7 * nrow(data_2022)) 
+train_data_RF <- data_2022[train_index, ]
+test_data_RF <- data_2022[-train_index, ]
+
+# Fit the Random Forest model
+RF_model <- randomForest(
+  formula = Avg_ridership ~ ..., 
+  data = train_data_RF
+)
+
+# Continue with predictions and evaluation
+
+
 

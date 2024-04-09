@@ -701,15 +701,16 @@ ggplot(busstop_sf) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(aes(color = Board), size = .5) +
   scale_color_gradient(low = "blue", high = "red") +
-  theme_minimal() +
+  mapTheme() +
   labs(title = "Bus Stops", color = "Board Value")
 
 ggplot(busstop_sf) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(aes(color = Alight), size = .5) +
   scale_color_gradient(low = "blue", high = "red") +
-  theme_minimal() +
+  mapTheme() +
   labs(title = "Bus Stops", color = "Alight Value")
+
 ```
 
 ### 4. Initial Trends
@@ -1074,7 +1075,7 @@ a <- ggplot(allTracts, aes(x = as.factor(year), y = TotalPop, fill = as.factor(y
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   theme(legend.position = "none") +
   theme(plot.title = element_text(size = 6)) +
-  scale_fill_manual(values = palettebase)
+  scale_fill_manual(values = palettebase7)
 
 b <- ggplot(allTracts, aes(x = as.factor(year), y = TotalWorker, fill = as.factor(year))) +
   geom_bar(stat = "identity", color = "transparent") +
@@ -1083,7 +1084,7 @@ b <- ggplot(allTracts, aes(x = as.factor(year), y = TotalWorker, fill = as.facto
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   theme(legend.position = "none") +
   theme(plot.title = element_text(size = 6)) +
-  scale_fill_manual(values = palettebase)
+  scale_fill_manual(values = palettebase7)
 
 c <- ggplot(allTracts, aes(x = as.factor(year), y = Workfromhome, fill = as.factor(year))) +
   geom_bar(stat = "identity", color = "transparent") +
@@ -1092,7 +1093,7 @@ c <- ggplot(allTracts, aes(x = as.factor(year), y = Workfromhome, fill = as.fact
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   theme(legend.position = "none") +
   theme(plot.title = element_text(size = 6)) +
-  scale_fill_manual(values = palettebase)
+  scale_fill_manual(values = palettebase7)
 d <- ggplot(allTracts, aes(x = as.factor(year), y = Workwithbus, fill = as.factor(year))) +
   geom_bar(stat = "identity", color = "transparent") +
   labs(title = "Population of People Using Bus as Transportation to Work: 2017-2022", x = "Year", y = "Total Population") +
@@ -1100,7 +1101,7 @@ d <- ggplot(allTracts, aes(x = as.factor(year), y = Workwithbus, fill = as.facto
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   theme(legend.position = "none") +
   theme(plot.title = element_text(size = 6)) +
-  scale_fill_manual(values = palettebase)
+  scale_fill_manual(values = palettebase7)
 
 combined_plot <- grid.arrange(a,b,c,d, ncol = 4, top = c(2, 2))
 
@@ -1212,7 +1213,8 @@ for(i in tp_vars2){
          geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
   mapList2[[i]] <- map2
   j2<-j2+1
 }
@@ -1228,7 +1230,8 @@ for(i in tp_vars2){
          geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
   mapList2[[i]] <- map2
   j2<-j2+1
 }
@@ -1244,7 +1247,8 @@ for(i in tp_vars2){
          geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
   mapList2[[i]] <- map2
   j2<-j2+1
 }
@@ -1260,7 +1264,8 @@ for(i in tp_vars2){
          geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
   mapList2[[i]] <- map2
   j2<-j2+1
 }
@@ -1276,7 +1281,8 @@ for(i in tp_vars2){
          geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
   mapList2[[i]] <- map2
   j2<-j2+1
 }
@@ -1292,7 +1298,8 @@ for(i in tp_vars2){
          geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2)))
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
   mapList2[[i]] <- map2
   j2<-j2+1
 }
@@ -1314,7 +1321,8 @@ for(i in tp_vars){
          geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
   mapList[[i]] <- map
   j<-j+1
 }
@@ -1330,7 +1338,8 @@ for(i in tp_vars){
          geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
   mapList[[i]] <- map
   j<-j+1
 }
@@ -1346,7 +1355,8 @@ for(i in tp_vars){
          geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
   mapList[[i]] <- map
   j<-j+1
 }
@@ -1362,7 +1372,8 @@ for(i in tp_vars){
          geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
   mapList[[i]] <- map
   j<-j+1
 }
@@ -1378,7 +1389,9 @@ for(i in tp_vars){
          geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
+  
   mapList[[i]] <- map
   j<-j+1
 }
@@ -1394,7 +1407,8 @@ for(i in tp_vars){
          geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
          geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
-         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j)))
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
   mapList[[i]] <- map
   j<-j+1
 }
@@ -1411,10 +1425,12 @@ car_titles <- c("Percent of Household with No Car", "Percent of Household with 1
 histList <- list()
 j <- 1
 
-for(i in car_vars){
+for (i in car_vars) {
   hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#005357", color = "black") +
-           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
   histList[[i]] <- hist
   j <- j + 1
 }
@@ -1425,12 +1441,14 @@ do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Meck
 histList <- list()
 j <- 1
 
-for(i in car_vars){
-  hist <- ggplot(data = dat2018, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#005357", color = "black") +
-           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
   histList[[i]] <- hist
-  j<-j+1
+  j <- j + 1
 }
 
 do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2018"))
@@ -1439,12 +1457,14 @@ do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Meck
 histList <- list()
 j <- 1
 
-for(i in car_vars){
-  hist <- ggplot(data = dat2019, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#005357", color = "black") +
-           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
   histList[[i]] <- hist
-  j<-j+1
+  j <- j + 1
 }
 
 do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2019"))
@@ -1453,12 +1473,14 @@ do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Meck
 histList <- list()
 j <- 1
 
-for(i in car_vars){
-  hist <- ggplot(data = dat2020, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#005357", color = "black") +
-           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
   histList[[i]] <- hist
-  j<-j+1
+  j <- j + 1
 }
 
 do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2020"))
@@ -1467,12 +1489,14 @@ do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Meck
 histList <- list()
 j <- 1
 
-for(i in car_vars){
-  hist <- ggplot(data = dat2021, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#005357", color = "black") +
-           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
   histList[[i]] <- hist
-  j<-j+1
+  j <- j + 1
 }
 
 do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2021"))
@@ -1481,12 +1505,14 @@ do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Meck
 histList <- list()
 j <- 1
 
-for(i in car_vars){
-  hist <- ggplot(data = dat2022, aes(x = !!sym(i))) +
-           geom_histogram(fill = "#005357", color = "black") +
-           labs(title = car_titles[j], caption = paste0("Figure ", as.character(j)))
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
   histList[[i]] <- hist
-  j<-j+1
+  j <- j + 1
 }
 
 do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2022"))
@@ -1750,7 +1776,7 @@ ggplot(OLS_testing_sf) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(aes(color = AbsError), size = .5) +
   scale_color_gradient(low = "blue", high = "red") +
-  theme_minimal() +
+  mapTheme() +
   labs(title = "Bus Stops", color = "Absolute Error Value")
 
 ```
@@ -1800,7 +1826,7 @@ ggplot(RF_testing_sf) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(aes(color = AbsError_RF), size = .5) +
   scale_color_gradient(low = "blue", high = "red") +
-  theme_minimal() +
+  mapTheme() +
   labs(title = "Bus Stops", color = "Absolute Error Value")
 
 ```

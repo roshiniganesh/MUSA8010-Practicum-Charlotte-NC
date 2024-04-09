@@ -1577,4 +1577,13 @@ write.csv(data_2022, "data_2022.csv", row.names = FALSE)
 ```
 
 
+```{r, warning=FALSE, message=FALSE}
+
+top_50_underperforming_census <- joined_data %>%
+  st_join(underperforming_top_50_all_sf, by = "stop_ID") %>%
+  group_by(Stop_ID, Year, Month)
+
+```
+
+
 
