@@ -1320,7 +1320,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
@@ -1337,7 +1337,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
@@ -1354,7 +1354,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
@@ -1371,7 +1371,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
@@ -1388,7 +1388,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   
@@ -1406,7 +1406,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "black", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
