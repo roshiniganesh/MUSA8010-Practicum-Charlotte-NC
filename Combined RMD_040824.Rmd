@@ -700,14 +700,14 @@ allTracts_sf <- st_transform(allTracts, 3358)
 ggplot(busstop_sf) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(aes(color = Board), size = .5) +
-  scale_color_gradient(low = "blue", high = "red") +
+  scale_color_gradient(low = "#FFAB00", high = "darkgreen") +
   mapTheme() +
   labs(title = "Bus Stops", color = "Board Value")
 
 ggplot(busstop_sf) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(aes(color = Alight), size = .5) +
-  scale_color_gradient(low = "blue", high = "red") +
+  scale_color_gradient(low = "#FFAB00", high = "darkgreen") +
   mapTheme() +
   labs(title = "Bus Stops", color = "Alight Value")
 
@@ -847,6 +847,10 @@ combined_plot <- plot_grid(positive_plot, negative_plot, ncol = 2)
 print(combined_plot)
 ```
 
+> From the plotted maps, there is a majority of stops in Charlotte’s city center that have experienced a decrease in ridership before and after the COVID-19 pandemic
+
+
+
 #### 4.2 Top 50 underperforming stops from 2017 to 2023
 
 Between 2017-2023, there is a uniform trend of underperformance in certain underperforming stops. Other underperforming stops exhibit a growing trend of underperformance post the pandemic. About half of these stops exhibit spatial clustering patterns and are located along a single route.
@@ -947,6 +951,10 @@ map_plot_top_50_2022 <- ggplot() +
 combined_plot <- bar_plot_top_50_2022 + map_plot_top_50_2022
 print(combined_plot)
 ```
+
+
+> Some stops exhibit a growing trend of underperformance post the pandemic.About half of these stops exhibit spatial clustering patterns and are located along a single route. The underperformance and clustering trends in 2022 are consistent with the overall trend in the city center area.
+
 
 ##### 4.3.1 2017\~2023 vs 2023
 
@@ -1212,7 +1220,7 @@ for(i in tp_vars2){
   map2 <- ggplot() +
          geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
   mapTheme()
   mapList2[[i]] <- map2
@@ -1229,7 +1237,7 @@ for(i in tp_vars2){
   map2 <- ggplot() +
          geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
   mapTheme()
   mapList2[[i]] <- map2
@@ -1246,7 +1254,7 @@ for(i in tp_vars2){
   map2 <- ggplot() +
          geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
   mapTheme()
   mapList2[[i]] <- map2
@@ -1263,7 +1271,7 @@ for(i in tp_vars2){
   map2 <- ggplot() +
          geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
   mapTheme()
   mapList2[[i]] <- map2
@@ -1280,7 +1288,7 @@ for(i in tp_vars2){
   map2 <- ggplot() +
          geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
   mapTheme()
   mapList2[[i]] <- map2
@@ -1297,7 +1305,7 @@ for(i in tp_vars2){
   map2 <- ggplot() +
          geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
   mapTheme()
   mapList2[[i]] <- map2
@@ -1306,6 +1314,8 @@ for(i in tp_vars2){
 
 do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2022 (Census Tracts)"))
 ```
+
+> From the plotted maps, suburban census tracts in Charlotte have more residents as well as more number of employed workers. For the people commuting to work by bus are largely concentrated in the city center of Charlotte. Meanwhile, work from home trends indicate dominant concentrations in the suburban areas.
 
 
 ##### 6.1.4 Spatial Reference of Car Ownership and Commute by Bus
@@ -1320,7 +1330,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
@@ -1337,7 +1347,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
@@ -1354,7 +1364,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
@@ -1371,7 +1381,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
@@ -1388,7 +1398,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   
@@ -1406,7 +1416,7 @@ for(i in tp_vars){
   map <- ggplot() +
          geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
          scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
-         geom_sf(data=bus_routes, color = "gold", size = 0.5,alpha = 0.5)+
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
          labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
     mapTheme()
   mapList[[i]] <- map
@@ -1415,6 +1425,7 @@ for(i in tp_vars){
 
 do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2022 (Census Tracts)"))
 ```
+
 
 ##### 6.1.5 Histogram of Car Ownership
 
@@ -1517,6 +1528,9 @@ for (i in car_vars) {
 
 do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2022"))
 ```
+
+> From the plotted maps, suburban census tracts in Charlotte have more households with cars than household in city center. Most of those households have two or more cars
+
 
 ##### 6.1.6 Car Ownership Trend
 
@@ -1775,7 +1789,7 @@ OLS_testing_sf <- st_as_sf(OLS_testing)
 ggplot(OLS_testing_sf) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(aes(color = AbsError), size = .5) +
-  scale_color_gradient(low = "blue", high = "red") +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
   mapTheme() +
   labs(title = "Bus Stops", color = "Absolute Error Value")
 
@@ -1825,115 +1839,9 @@ RF_testing_sf <- st_as_sf(RF_testing)
 ggplot(RF_testing_sf) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(aes(color = AbsError_RF), size = .5) +
-  scale_color_gradient(low = "blue", high = "red") +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
   mapTheme() +
   labs(title = "Bus Stops", color = "Absolute Error Value")
-
-```
-##### K-fold validation
-```{r}
-# Load required packages
-install.packages("caret")
-library(caret)
-
-# Define the training control parameters for cross-validation
-ctrl <- trainControl(method = "cv", 
-                     number = 10,     # Number of folds
-                     verboseIter = TRUE)  
-
-# Train the random forest model using k-fold cross-validation
-RF_model <- train(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, 
-                  data = train_data_RF,
-                  method = "rf",  
-                  trControl = ctrl)  
-
-# Assess the performance of the model
-summary(RF_model)
-```
-
-#### Test if code works
-
-```{r}
-library(spgwr)
-library(spdep)
-
-first_10_rows <- head(data_2022, 10)
-first_10_rows<-as(first_10_rows,'Spatial')
-
-# Select bandwidth for GWR
-GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop , data = first_10_rows, method = "aic", adapt = TRUE)
-
-# Run GWR model
-gwr_model <- gwr(Avg_ridership ~ TotalPop,
-                 data = first_10_rows,
-                 adapt = GWRbandwidth,
-                 gweight = gwr.Gauss,
-                 hatmatrix = TRUE,
-                 se.fit = TRUE)  
-
-
-# View GWR model results
-gwr_model
-```
-
-#### GWR
-
-```{r}
-data_2022<-na.omit(data_2022)
-#data_2022 <- as(data_2022, 'Spatial')
-
-# Select bandwidth for GWR
-GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop+ MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, data = data_2022, method = "aic",adapt = TRUE)
-# GWRbandwidth_fixed<-gwr.sel(formula=Avg_ridership ~TotalPop+ MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, data=data_2022,method = "aic",adapt = FALSE)
-
-# Run GWR model
-gwr_model <- gwr(Avg_ridership ~ TotalPop+ MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5,
-                 data = data_2022,
-                 adapt = GWRbandwidth,
-                 gweight=gwr.Gauss,
-                 hatmatrix = TRUE,
-                 se.fit = TRUE) 
-
-# View GWR model results
-print(gwr_model)
-gwr_model
-```
-
-#### Reduced data size
-```{r}
-# Reduce data size and convert data to Spatial object
-set.seed(123)  
-sample_index <- sample(1:nrow(data_2022), 0.1 * nrow(data_2022)) 
-sample_data <- data_2022[sample_index, ]
-# List of percentage variables
-percentage_vars <- c("pctWhite", "pctAfricanamerican", "pctAsian", "pctOther", "pctMale", "pctFemale", "pctBachelors", "pctWorker", "pctPoverty", "pctworkwithbus", "pctworkfromhome", "pctworkbycar", "pctworkbytaxi", "pctworkbymotor", "pctworkbybike", "pctworkbywalk", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
-
-# Loop through each percentage variable and cap values at 1
-for (var in percentage_vars) {
-  sample_data[[var]] <- ifelse(sample_data$TotalPop > 0, pmin(sample_data[[var]] / sample_data$TotalPop, 1), 0)
-}
-
-
-sample_data <- as(sample_data, 'Spatial')
-
-
-# Select bandwidth for GWR
-GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, data = sample_data, method = "aic", adapt = TRUE)
-
-# Median imputation of missing values 
-#sample_data$MedHHInc[is.na(sample_data$MedHHInc)] <- median(sample_data$MedHHInc, na.rm = TRUE)
-#sample_data$MedRent[is.na(sample_data$MedRent)] <- median(sample_data$MedRent, na.rm = TRUE)
-
-# Run GWR model 
-gwr_model <- 
-    gwr(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5,
-        data = sample_data,
-        adapt = GWRbandwidth,
-        gweight = gwr.Gauss,
-        hatmatrix = TRUE,
-        se.fit = TRUE) 
-
-gwr_model
 
 ```
 
