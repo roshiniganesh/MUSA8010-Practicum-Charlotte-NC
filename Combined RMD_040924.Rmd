@@ -1846,7 +1846,6 @@ ggplot(RF_testing_sf) +
 ```
 
 
-<!--
 
 ##### K-fold validation
 ```{r}
@@ -1868,6 +1867,159 @@ RF_model <- train(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork 
 # Assess the performance of the model
 summary(RF_model)
 ```
+
+
+#### Random Forest#2
+
+
+```{r} 
+# Calculate the number of routes passing through each bus stop
+num_routes <- sapply(1:nrow(data_2022_sf), function(i) {
+  bus_stop <- data_2022_sf[i,]
+  intersected_routes <- st_intersects(routes_sf, bus_stop$geometry)
+  sum(unlist(intersected_routes))
+})
+
+# Add the "num_routes" column to data_2022_sf
+data_2022_sf$num_routes <- num_routes
+```
+
+
+```{r} 
+# Check the structure of your datasets
+str(data_2022_sf)
+str(routes_sf)
+
+# Perform spatial join
+data_joined <- st_join(data_2022_sf, routes_sf, join = st_intersects)
+
+# Count the number of intersecting routes for each stop
+route_counts <- data_joined %>%
+  group_by('Stop ID') %>%
+  summarise(routes_count = n_distinct(ROUTE_NUM))
+
+# Merge the route counts back to the original data using st_join
+data_2022_sf <- st_join(data_2022_sf, route_counts, by = "Stop ID")
+
+```
+
+```{r}
+# Plot stops (data_2022_sf) and routes (routes_sf) using ggplot
+stop_plot <- ggplot(data = data_2022_sf) +
+  geom_sf(aes(color = "Stops")) +
+  labs(color = "Data Type", title = "Stops Visualization")
+
+route_plot <- ggplot(data = routes_sf) +
+  geom_sf(aes(color = "Routes")) +
+  labs(color = "Data Type", title = "Routes Visualization")
+
+# Plot both on the same graph
+combined_plot <- stop_plot +
+  geom_sf(data = routes_sf, aes(color = "Routes")) +
+  labs(color = "Data Type", title = "Combined Stops and Routes Visualization")
+
+# Show the plots
+print(stop_plot)
+print(route_plot)
+print(combined_plot)
+```
+
+
+```{r} 
+# Check CRS and transform if needed (assuming they are not already in the same CRS)
+if (!identical(st_crs(data_2022_sf), st_crs(routes_sf))) {
+  routes_sf <- st_transform(routes_sf, st_crs(data_2022_sf))
+}
+
+# Create an empty data frame to store results
+result_df <- data.frame('Stop ID' = character(), nearest_routes = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each stop point and find nearest routes
+for (i in 1:nrow(data_2022_sf)) {
+  stop_point <- data_2022_sf[i, ]
+  distances <- st_distance(stop_point, routes_sf, by_element = TRUE)
+  nearest_routes <- sum(distances <= 0.01, na.rm = TRUE)  # Adjust the distance threshold as needed
+  result_df <- rbind(result_df, data.frame('Stop ID' = stop_point$'Stop ID', nearest_routes = nearest_routes))
+}
+```
+
+
+
+
+
+
+```{r} 
+# View the joined data
+print(joined_data)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r} 
+library(randomForest)
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+train_index <- sample(1:nrow(data_2022), 0.7 * nrow(data_2022)) 
+train_data_RF <- data_2022[train_index, ]
+train_data_RF <- na.omit(train_data_RF)
+test_data_RF <- data_2022[-train_index, ]
+test_data_RF<-na.omit(test_data_RF)
+
+# Fit the Random Forest model
+RF_model <- randomForest(
+  formula = Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, 
+  data = train_data_RF)
+
+
+RF_testing <- test_data_RF %>%
+  mutate(Predictions_RF = predict(RF_model, newdata = test_data_RF),
+Error_RF = Predictions_RF - test_data_RF$Avg_ridership,
+AbsError_RF = abs(Predictions_RF - test_data_RF$Avg_ridership),
+MAE_RF= mean(abs(Error_RF)),
+APE_RF = (abs(Predictions_RF - test_data_RF$Avg_ridership)) / Predictions_RF)
+
+RF_model
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #### Test if code works
 
@@ -1897,16 +2049,30 @@ gwr_model
 #### GWR
 
 ```{r}
-data_2022<-na.omit(data_2022)
+data_2022_sf <- st_as_sf(data_2022, wkt = "geometry")
+
+# Extract x and y coordinates from the "geometry" column
+data_2022$Longitude <- st_coordinates(data_2022_sf)[, "X"]
+data_2022$Latitude <- st_coordinates(data_2022_sf)[, "Y"]
+
+
+```
+
+
+
+
+```{r}
+data_2022_<-na.omit(data_2022_sf)
 #data_2022 <- as(data_2022, 'Spatial')
 
 # Select bandwidth for GWR
-GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop+ MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, data = data_2022, method = "aic",adapt = TRUE)
+GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop+ MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, data = data_2022_sf, coords = c("Longitude", "Latitude"), method = "aic",adapt = TRUE)
 # GWRbandwidth_fixed<-gwr.sel(formula=Avg_ridership ~TotalPop+ MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, data=data_2022,method = "aic",adapt = FALSE)
 
 # Run GWR model
 gwr_model <- gwr(Avg_ridership ~ TotalPop+ MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5,
-                 data = data_2022,
+                 data = data_2022_sf,
+                 coords = c("Longitude", "Latitude"),
                  adapt = GWRbandwidth,
                  gweight=gwr.Gauss,
                  hatmatrix = TRUE,
@@ -1936,7 +2102,7 @@ sample_data <- as(sample_data, 'Spatial')
 
 
 # Select bandwidth for GWR
-GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, data = sample_data, method = "aic", adapt = TRUE)
+GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct2car + policeoffice_nn1 + groceries_nn1 + parks_nn1 + shoppingcen_nn1, data = sample_data, method = "aic", adapt = TRUE)
 
 # Median imputation of missing values 
 #sample_data$MedHHInc[is.na(sample_data$MedHHInc)] <- median(sample_data$MedHHInc, na.rm = TRUE)
@@ -1944,7 +2110,7 @@ GWRbandwidth <- gwr.sel(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutet
 
 # Run GWR model 
 gwr_model <- 
-    gwr(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5,
+    gwr(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct2car + policeoffice_nn1 + groceries_nn1 + parks_nn1 + shoppingcen_nn1,
         data = sample_data,
         adapt = GWRbandwidth,
         gweight = gwr.Gauss,
@@ -1954,5 +2120,3 @@ gwr_model <-
 gwr_model
 
 ```
-
--->
