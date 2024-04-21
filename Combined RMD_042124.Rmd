@@ -1913,6 +1913,31 @@ RF_model2
 ```
 
 
+```{r}
+# Extract actual and predicted values
+actual2 <- test_data_RF2$Avg_ridership
+predicted2 <- predict(RF_model2, newdata = test_data_RF2)
+
+# Create a scatter plot of actual vs. predicted values
+plot(actual2, predicted2, main = "Actual vs. Predicted", xlab = "Actual", ylab = "Predicted")
+abline(0, 1, col = "red")  # Add a line of perfect prediction (y = x)
+```
+
+
+```{r}
+RF_testing_sf2 <- st_as_sf(RF_testing2)
+
+ggplot(RF_testing_sf2) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = AbsError_RF2), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Absolute Error Value")
+
+```
+
+
+
 #### Test if code works
 
 ```{r}
