@@ -1,0 +1,5 @@
+{
+"type": "FeatureCollection",
+"name": "RF_testing2",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::3358" } },
+"features": [

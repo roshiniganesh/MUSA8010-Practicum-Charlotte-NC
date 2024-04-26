@@ -1868,37 +1868,103 @@ RF_model <- train(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork 
 summary(RF_model)
 ```
 
-```{r}
-write.csv(data_2022, "data_2022_testrf2.csv", row.names = FALSE)
-```
-
-
 
 #### Random Forest#2
 
-```{r} 
-busstop_rf2_test <- st_read("C:/Users/jonat/MUSA8010-Practicum-Charlotte-NC/RF2_data.csv")
+```{r}
+
+routes_test <- st_read("C:/Users/jonat/OneDrive - PennO365/Documents/MUSA 8010/Practicum_Charlotte_2024/CATS_BusStops/CATS_BusStops.shp")
+
+new_routes <- routes_test[, c("StopID", "routes")]
+
+library(dplyr)
+
+# Assuming your dataset is named "new_data" and column "a" contains values like "00040", "00125", etc.
+# Convert column "a" to numeric and then format it without leading zeros
+new_routes_2 <- new_routes %>%
+  mutate(StopID = as.numeric(StopID),
+         StopID = sprintf("%d", StopID))
+
+
+new_routes_2 <- new_routes_2 %>%
+  rename('Stop ID' = StopID)
+
+
+# Convert the sf object "sf_data" to a regular data frame
+routes_df <- st_drop_geometry(new_routes_2)
+
+# Perform a left join based on the common column "Stop ID"
+merged_dataset_bus <- left_join(routes_df, data_2022, by = "Stop ID")
+
+merged_dataset_bus <- merged_dataset_bus %>%
+  mutate("total_routes_in_stops" = str_count(routes, ",") + 1)
+
+
+# Separate the routes into individual rows
+separated_data <- merged_dataset_bus %>%
+  separate_rows(routes, sep = ",\\s*")
+
+# Count the number of routes in each row
+merged_dataset_bus$total_of_routes <- sapply(strsplit(merged_dataset_bus$routes, ",\\s*"), length)
+
+
+# Calculate the count of unique Stop ID values for each route
+count_stops_data <- separated_data %>%
+  group_by(routes, `Stop ID`) %>%
+  summarise(total_stops_in_routes = n_distinct(`Stop ID`))
+
+
+count_stops_routes <- separated_data %>%
+  group_by(routes) %>%
+  summarise(total_stops_in_routes = n_distinct(`Stop ID`))
+
+# Merge the count_stops_data back to the original_data based on routes and counts
+merge_count_data <- left_join(separated_data, count_stops_routes, by = "routes")
+
+merge_count_data <- merge_count_data %>%
+  mutate("total_routes_in_stops" = str_count(routes, ",") + 1)
+
+
+summarized_data2 <- merge_count_data %>%
+  group_by(`Stop ID`, Month) %>%
+  summarize(total_stops_in_served_routes = sum(total_stops_in_routes, na.rm = TRUE))
+
+
+# Merge the summarized data back with the original 'bus_2022' dataset
+RF2_table <- merge(merged_dataset_bus, summarized_data2, by = c('Stop ID', 'Month'), all.x = TRUE)
+
+
+RF2_table <- merge_count_data %>%
+  group_by('Stop ID', Month) %>%
+  summarize(
+    routes = toString(unique(routes)),  # Merge routes separated by comma and space
+    total_routes_in_stops = first(total_routes_in_stops),
+    total_stops_in_routes = sum(total_stops_in_routes)
+  )
+
+
+RF2_sf <- st_as_sf(RF2_table, wkt = "geometry")
+
+
+
 ```
+
 
 ```{r} 
 library(randomForest)
 
 # Split the data into training and testing sets
 set.seed(123)  # For reproducibility
-train_index2 <- sample(1:nrow(busstop_rf2_test), 0.7 * nrow(busstop_rf2_test)) 
-train_data_RF2 <- busstop_rf2_test[train_index2, ]
+train_index2 <- sample(1:nrow(RF2_table), 0.7 * nrow(RF2_table)) 
+train_data_RF2 <- RF2_table[train_index2, ]
 train_data_RF2 <- na.omit(train_data_RF2)
-test_data_RF2 <- busstop_rf2_test[-train_index2, ]
-test_data_RF2<-na.omit(test_data_RF2)
+test_data_RF2 <- RF2_table[-train_index2, ]
+test_data_RF2<- na.omit(test_data_RF2)
 
-
-train_data_RF2[] <- lapply(train_data_RF2, as.numeric)
-
-test_data_RF2[] <- lapply(test_data_RF2, as.numeric)
 
 # Fit the Random Forest model
 RF_model2 <- randomForest(
-  formula = Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5+ Number.of.routes + Number.of.stops.in.routes, 
+  formula = Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5+ total_of_routes + total_stops_in_served_routes, 
   data = train_data_RF2)
 
 
@@ -1936,6 +2002,59 @@ ggplot(RF_testing_sf2) +
 
 ```
 
+
+```{r}
+underperforming_stops_predicted2 <- RF_testing2[RF_testing2$Predictions_RF2 <= 10, ]
+underperformance_counts_predicted2 <- table(underperforming_stops_predicted2$"Stop ID")
+
+# Top 50 Stops for 2023
+top_50_stops_predicted2 <- names(sort(underperformance_counts_predicted2, decreasing = TRUE)[1:50])
+underperforming_top_50_predicted2 <- underperforming_stops_predicted2[underperforming_stops_predicted2$"Stop ID" %in% top_50_stops_predicted2, ]
+
+# Order
+underperforming_top_50_predicted2$"Stop ID" <- factor(underperforming_top_50_predicted2$"Stop ID", levels = rev(top_50_stops_predicted2))
+
+#underperforming_top_50_sf2 <- st_as_sf(underperforming_top_50_predicted2, coords = c("Longitude", "Latitude"), crs = 4326)
+
+#underperforming_top_50_sf2 <- st_as_sf(underperforming_top_50_predicted2, wkt = "geometry", crs = 4326)
+
+#underperforming_top_50_predicted2$geometry <- st_transform(underperforming_top_50_predicted2$geometry, crs = 3358)
+
+
+
+
+underperforming_top_50_predicted2$geometry <- st_transform(underperforming_top_50_predicted2$geometry, crs = 3358)  # NAD83 North Carolina
+
+map_plot_top_50_predicted2 <- ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_50_predicted2, aes(geometry = geometry, colour = q5(Predictions_RF2)), size = 2) +
+  scale_color_manual(values = rev(palettebase5),
+                     labels = c("1", "2", "3", "4", "5"),
+                     name = "Quintile\nBreaks") +
+  labs(title = "Top 50 Bus Stops with Lowest Predicted Avg Ridership",
+       fill = "Predictions_RF2") +
+  mapTheme()
+
+print(map_plot_top_50_predicted2)
+
+```
+
+
+```{r}
+# Random Forrest 2 multicolinearity 
+
+library(car)
+
+# Get variable importance scores from the Random Forest model
+importance_scores <- importance(RF_model2)
+
+# Print the variable importance scores
+print(importance_scores)
+
+# Plot the variable importance scores
+varImpPlot(RF_model2)
+```
 
 
 #### Test if code works
