@@ -1894,6 +1894,9 @@ ggplot(RF_testing_sf) +
 
 
 ##### K-fold validation
+
+> Random Forest 1
+
 ```{r}
 # Load required packages
 install.packages("caret")
@@ -1919,8 +1922,6 @@ RF_model$resample[1:5,]
 
 mean(RF_model$resample[,3])
 ```
-
-
 
 
 #### Random Forest#2
@@ -2046,23 +2047,6 @@ ggplot(RF_testing_sf2) +
 
 
 ```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
-underperforming_stops_predicted2_m <- underperforming_stops_predicted2[underperforming_stops_predicted2$Month == 'January', ]
-
-ggplot() +
-  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8, color = NA) +
-  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
-  geom_sf(data = underperforming_stops_predicted2_m, aes(color = Predictions_RF2), size = 1) +
-  scale_color_gradient(low = "#FFBD37", high = "#005357") +
-  mapTheme() +
-  labs(title = "Predicted Avg Ridership under 10 in January", color = "Predicted Ridership") +
-  theme(legend.position = "bottom")
-
-#file_path <- "prediction_rf2.geojson"
-#st_write(underperforming_stops_predicted2_m, file_path, driver = "GeoJSON")
-```
-
-
-```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
 underperforming_stops_predicted2 <- RF_testing2[RF_testing2$Predictions_RF2 <= 10, ]
 underperformance_counts_predicted2 <- table(underperforming_stops_predicted2$"Stop ID")
 
@@ -2104,6 +2088,24 @@ print(map_plot_top_50_predicted2)
 ```
 
 
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+underperforming_stops_predicted2_m <- underperforming_stops_predicted2[underperforming_stops_predicted2$Month == 'January', ]
+
+ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_stops_predicted2_m, aes(color = Predictions_RF2), size = 1) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Predicted Avg Ridership under 10 in January", color = "Predicted Ridership") +
+  theme(legend.position = "bottom")
+
+#file_path <- "prediction_rf2.geojson"
+#st_write(underperforming_stops_predicted2_m, file_path, driver = "GeoJSON")
+```
+
+
+
 ```{r}
 # Random Forrest 2 multicolinearity 
 
@@ -2120,8 +2122,31 @@ varImpPlot(RF_model2)
 ```
 
 
+```{r}
+# Load required packages
+install.packages("caret")
+library(caret)
 
+# Define the training control parameters for cross-validation
+ctrl2 <- trainControl(method = "cv", 
+                     number = 5,     # Number of folds
+                     verboseIter = TRUE)  
 
+# Train the random forest model using k-fold cross-validation
+RF_model2 <- train(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5+ total_routes_in_stops + total_stops_in_served_routes + Month + PopDensity_km2 + transit_stops_nn1 + transit_stops_nn2 + transit_stops_nn3 + transit_stops_nn4 + transit_stops_nn5 + school_nn1 + school_nn2 + school_nn3 + school_nn4 + school_nn5 + dist_to_center, 
+                  data = train_data_RF2,
+                  method = "rf",  
+                  trControl = ctrl2)  
+
+# Assess the performance of the model
+summary(RF_model2)
+```
+
+```{r}
+RF_model2$resample[1:5,]
+
+mean(RF_model2$resample[,3])
+```
 
 
 
