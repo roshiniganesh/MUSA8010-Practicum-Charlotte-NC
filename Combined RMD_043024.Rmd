@@ -1914,6 +1914,14 @@ RF_model <- train(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork 
 summary(RF_model)
 ```
 
+```{r}
+RF_model$resample[1:5,]
+
+mean(RF_model$resample[,3])
+```
+
+
+
 
 #### Random Forest#2
 
