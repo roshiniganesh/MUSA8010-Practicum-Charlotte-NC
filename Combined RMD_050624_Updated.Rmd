@@ -1761,6 +1761,7 @@ ggplot() +
   mapTheme()
 
 ```
+
 ```{r}
 data_2022 <-
   data_2022 %>% 
@@ -2051,6 +2052,9 @@ ggplot(RF_testing_sf2) +
 RF_testing_sf_monthly <- RF_testing_sf2 %>%
   mutate(Monthly_prediction = Predictions_RF2 * Number_of_Days)
 
+file_path <- "predictions.geojson"
+st_write(RF_testing_sf_monthly, file_path, driver = "GeoJSON")
+
 ```
 
 
@@ -2090,8 +2094,8 @@ map_plot_top_50_predicted2 <- ggplot() +
 
 print(map_plot_top_50_predicted2)
 
-#file_path <- "prediction_rf2_top50.geojson"
-#st_write(underperforming_top_50_predicted2, file_path, driver = "GeoJSON")
+file_path <- "Top50underperforming.geojson"
+st_write(underperforming_top_50_predicted2, file_path, driver = "GeoJSON")
 
 ```
 
@@ -2108,8 +2112,8 @@ ggplot() +
   labs(title = "Predicted Avg Ridership under 10 in January", color = "Predicted Ridership") +
   theme(legend.position = "bottom")
 
-#file_path <- "prediction_rf2.geojson"
-#st_write(underperforming_stops_predicted2_m, file_path, driver = "GeoJSON")
+file_path <- "underperforming_Jan.geojson"
+st_write(underperforming_stops_predicted2_m, file_path, driver = "GeoJSON")
 ```
 
 
@@ -2242,18 +2246,8 @@ ggplot(result) +
   labs(title = "Predicted Avg Ridership under 10 in January: Scenario I", color = "Predicted Avg Ridership with \n15% Increase in Population Density")
 
 
-# Save geojson file
-
-library(sf)
-library(jsonlite)
-install.packages("geojsonio")
-library(geojsonio)
-
-result_sf <- st_as_sf(result)
-
-file_path <- "Scenario Geojson File/Predicted_Avg_ridership_Under10_January_ScenarioI.geojson"
-# Save the sf object to a GeoJSON file using geojsonio
-geojson_write(result_sf, file= file_path)
+file_path <- "scenario1underperforming.geojson"
+st_write(result, file_path, driver = "GeoJSON")
 
 
 
@@ -2340,13 +2334,8 @@ ggplot(result) +
   mapTheme() +
   labs(title = "Predicted Avg Ridership under 10 in January: Scenario I", color = "Predicted Avg Ridership with \n30% Increase in Population Density")
 
-# Save geojson file
-
-result_sf <- st_as_sf(result)
-
-file_path <- "Scenario Geojson File/Predicted_Avg_ridership_Under10_January_ScenarioIa(30%).geojson"
-# Save the sf object to a GeoJSON file using geojsonio
-geojson_write(result_sf, file= file_path)
+file_path <- "scenario1aunderperforming.geojson"
+st_write(result, file_path, driver = "GeoJSON")
 
 
 ```
@@ -2431,11 +2420,8 @@ ggplot(result) +
   mapTheme() +
   labs(title = "Predicted Avg Ridership under 10 in January: Scenario II", color = "Predicted Avg Ridership with \n25% Increase in Median Income")
 
-result_sf <- st_as_sf(result)
-
-file_path <- "Scenario Geojson File/Predicted_Avg_ridership_Under10_January_ScenarioII.geojson"
-# Save the sf object to a GeoJSON file using geojsonio
-geojson_write(result_sf, file= file_path)
+file_path <- "scenario2underperforming.geojson"
+st_write(result, file_path, driver = "GeoJSON")
 
 ```
 
@@ -2520,11 +2506,8 @@ ggplot(result) +
   labs(title = "Predicted Avg Ridership under 10 in January: Scenario II", color = "Predicted Avg Ridership with \n50% Increase in Median Income")
 
 
-result_sf <- st_as_sf(result)
-
-file_path <- "Scenario Geojson File/Predicted_Avg_ridership_Under10_January_ScenarioIIa(30%).geojson"
-# Save the sf object to a GeoJSON file using geojsonio
-geojson_write(result_sf, file= file_path)
+file_path <- "scenario2aunderperforming.geojson"
+st_write(result, file_path, driver = "GeoJSON")
 
 
 
@@ -2748,14 +2731,11 @@ ggplot(result) +
   geom_sf(aes(color = Monthly_prediction), size = .5) +
   scale_color_gradient(low = "#FFBD37", high = "#005357") +
   mapTheme() +
-  labs(title = "Predicted Avg Ridership under 10 in January: Scenario III", color = "Predicted Avg Ridership with proposed transit lines added")
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario III", color = "Predicted Avg Ridership \nwith proposed transit lines added")
 
 
-result_sf <- st_as_sf(result)
-
-file_path <- "Scenario Geojson File/Predicted_Avg_ridership_Under10_January_ScenarioIII(30%).geojson"
-# Save the sf object to a GeoJSON file using geojsonio
-geojson_write(result_sf, file= file_path)
+file_path <- "scenario3underperforming.geojson"
+st_write(result, file_path, driver = "GeoJSON")
 
 
 ```
@@ -2836,6 +2816,7 @@ ggplot(RF_testing2_s1_sf) +
   labs(title = "Bus Stops", color = "Absolute Error Value")
 
 ```
+
 ```{r}
 result <- RF_testing2_s1_sf[RF_testing2_s1_sf$Month == 'January', ]
 result <- result[result$Predictions_RF2_s1 <= 10, ]
