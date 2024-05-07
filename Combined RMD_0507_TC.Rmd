@@ -105,6 +105,10 @@ On initial review, certain limitations of the data present themselves. These inc
 3. Data on stops added or removed in these years of study is not explicit 
 4. Only stop locations are made available which means route locations will have to be sourced and spatially joined. This allows us to join only the most recent route data for these stops.
 5. The dataset for 2023 is incomplete and only includes data for months January to November.
+```{r}
+newstops_test <- st_read("Test/2022_test.shp")%>%
+  st_transform('EPSG:3358')
+```
 
 
 ```{r cars, warning=FALSE, message=FALSE, include=FALSE}
@@ -603,6 +607,8 @@ dat2022 <-
          pct5car = ifelse(Total > 0, car5more / Total, 0),
          year = "2022") %>%
   dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+
+
 ```
 
 #### 3.3 Data Wrangling
@@ -703,6 +709,8 @@ bus_stops.sf <-
   stops %>%
     st_as_sf(coords = c("Longitude", "Latitude"), crs = "EPSG:3358")%>%
     distinct()
+
+
 
 ```
 
@@ -1595,6 +1603,11 @@ In doing so, our aim is to build a comprehensive and robust model to optimize bu
 joined_data <- st_join(busstop_sf, allTracts_sf, join = st_within)
 ```
 
+```{r, warning=FALSE, message=FALSE}
+# Perform spatial join based on containment (bus stops within census tracts)
+joined_data_test <- st_join(newstops_test, dat2022, join = st_within)
+```
+
 
 ```{r, warning=FALSE, message=FALSE}
 a# Spatial join based on containment (bus stops within census tracts)
@@ -1733,6 +1746,102 @@ data_2022 <-
 
 ```
 
+##### add stop test
+```{r}
+joined_data_test <-
+  joined_data_test %>% 
+    mutate(
+      school_nn1 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(school.sf), k = 1),
+      
+      school_nn2 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(school.sf), k = 2), 
+      
+      school_nn3 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(school.sf), k = 3), 
+      
+      school_nn4 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(school.sf), k = 4), 
+      
+      school_nn5 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(school.sf), k = 5)) 
+
+joined_data_test <-
+  joined_data_test %>% 
+    mutate(
+      policeoffice_nn1 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(policeoffice.sf), k = 1),
+      
+      policeoffice_nn2 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(policeoffice.sf), k = 2), 
+      
+      policeoffice_nn3 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(policeoffice.sf), k = 3), 
+      
+      policeoffice_nn4 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(policeoffice.sf), k = 4), 
+      
+      policeoffice_nn5 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(policeoffice.sf), k = 5)) 
+
+joined_data_test <-
+  joined_data_test %>% 
+    mutate(
+      groceries_nn1 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(groceries.sf), k = 1),
+      
+      groceries_nn2 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(groceries.sf), k = 2), 
+      
+      groceries_nn3 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(groceries.sf), k = 3), 
+      
+      groceries_nn4 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(groceries.sf), k = 4), 
+      
+      groceries_nn5 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(groceries.sf), k = 5)) 
+
+
+joined_data_test <-
+  joined_data_test %>% 
+    mutate(
+      parks_nn1 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(parks.sf), k = 1),
+      
+      parks_nn2 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(parks.sf), k = 2), 
+      
+      parks_nn3 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(parks.sf), k = 3), 
+      
+      parks_nn4 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(parks.sf), k = 4), 
+      
+      parks_nn5 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(parks.sf), k = 5)) 
+
+joined_data_test <-
+  joined_data_test %>% 
+    mutate(
+      shoppingcen_nn1 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(shoppingcen.sf), k = 1),
+      
+      shoppingcen_nn2 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(shoppingcen.sf), k = 2), 
+      
+      shoppingcen_nn3 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(shoppingcen.sf), k = 3), 
+      
+      shoppingcen_nn4 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(shoppingcen.sf), k = 4), 
+      
+      shoppingcen_nn5 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(shoppingcen.sf), k = 5)) 
+
+```
+
+
 ```{r}
 # Rename OBJECTID_1 column to OBJECTID in blue_stops
 blue_stops <- blue_stops %>% rename(OBJECTID = OBJECTID_1)
@@ -1787,10 +1896,39 @@ city_center<- st_sfc(st_point(c(1692115, 5236081)), crs = 3358)
 data_2022$dist_to_center <- st_distance(data_2022$geometry, city_center)
 ```
 
+### test add stops
+```{r}
+joined_data_test <-
+  joined_data_test %>% 
+    mutate(
+      transit_stops_nn1 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(existing_transit_stops), k = 1),
+      
+      transit_stops_nn2 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(existing_transit_stops), k = 2), 
+      
+      transit_stops_nn3 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(existing_transit_stops), k = 3), 
+      
+      transit_stops_nn4 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(existing_transit_stops), k = 4), 
+      
+      transit_stops_nn5 = nn_function(st_coordinates(joined_data_test), 
+                              st_coordinates(existing_transit_stops), k = 5)) 
+```
+
+```{r}
+city_center<- st_sfc(st_point(c(1692115, 5236081)), crs = 3358)
+joined_data_test$dist_to_center <- st_distance(joined_data_test$geometry, city_center)
+```
 
 ### Modeling
 
 #### OLS
+```{r}
+joined_data_test <- joined_data_test %>% 
+             mutate(Avg_ridership = Avg_Board + Avg_Alight)
+```
 
 ```{r}
 data_2022 <- data_2022 %>% 
@@ -1994,6 +2132,91 @@ RF2_table_sf <- st_as_sf(RF2_table)
 
 ```
 
+### Test add stops
+```{r}
+
+routes_test <- st_read("Bus Transit Data/Bus_Stops_With_Frequency_HLT.shp")
+
+new_routes <- routes_test[, c("StopID", "routes")]
+
+
+# Assuming your dataset is named "new_data" and column "a" contains values like "00040", "00125", etc.
+# Convert column "a" to numeric and then format it without leading zeros
+new_routes_2 <- new_routes %>%
+  mutate(StopID = as.numeric(StopID),
+         StopID = sprintf("%d", StopID))
+
+
+new_routes_2 <- new_routes_2 %>%
+  rename('Stop ID' = StopID)
+
+
+# Convert the sf object "sf_data" to a regular data frame
+routes_df <- st_drop_geometry(new_routes_2)
+
+# Remove spaces in "Stop ID" values
+joined_data_test$`Stop ID` <- gsub("\\s+", "", joined_data_test$`Stop.ID`)
+
+# Perform a left join based on the common column "Stop ID"
+merged_dataset_bus <- left_join( routes_df,joined_data_test, by = "Stop ID")
+
+merged_dataset_bus <- merged_dataset_bus %>%
+  mutate("total_routes_in_stops" = str_count(routes, ",") + 1)
+
+
+# Separate the routes into individual rows
+separated_data <- merged_dataset_bus %>%
+  separate_rows(routes, sep = ",\\s*")
+
+# Count the number of routes in each row
+# merged_dataset_bus$total_of_routes <- sapply(strsplit(merged_dataset_bus$routes, ",\\s*"), length)
+
+
+# Calculate the count of unique Stop ID values for each route
+# count_stops_data <- separated_data %>% group_by(routes, `Stop ID`) %>% summarise(total_stops_in_routes = n_distinct(`Stop ID`))
+
+count_stops_routes <- separated_data %>%
+  group_by(routes) %>%
+  summarise(total_stops_in_routes = n_distinct(`Stop ID`))
+
+# Merge the count_stops_data back to the original_data based on routes and counts
+merge_count_data <- left_join(separated_data, count_stops_routes, by = "routes")
+
+merge_count_data <- merge_count_data %>%
+  mutate("total_routes_in_stops" = str_count(routes, ",") + 1)
+
+
+summarized_data2 <- merge_count_data %>%
+  group_by(`Stop ID`, Month) %>%
+  summarize(total_stops_in_served_routes = sum(total_stops_in_routes, na.rm = TRUE))
+
+
+# Merge the summarized data back with the original 'bus_2022' dataset
+RF2_table <- merge(merged_dataset_bus, summarized_data2, by = c('Stop ID', 'Month'), all.x = TRUE)
+
+
+RF2_table_sf <- st_as_sf(RF2_table)
+
+
+```
+
+
+```{r}
+
+
+# Extract rows from table2 where stop_name matches specific values
+filtered_table2 <- joined_data_test[joined_data_test$Stop.Name %in% c("Test_1", "Test_2", "Test_3", "Test_4", "Test_5", "Test_6", "Test_7", "Test_8", "Test_9", "Test_10"), ]
+
+filtered_table2$routes <- 1
+filtered_table2$total_routes_in_stops <- 1
+filtered_table2$total_stops_in_served_routes <- 1
+
+colnames(RF2_table)<-colnames(filtered_table2)  
+
+table_test <- rbind(RF2_table_sf, filtered_table2)
+
+```
+
 
 ```{r} 
 
@@ -2021,6 +2244,7 @@ APE_RF2 = (abs(Predictions_RF2 - test_data_RF2$Avg_ridership)) / Predictions_RF2
 
 RF_model2
 ```
+
 
 
 ```{r}
@@ -2257,6 +2481,57 @@ ggplot(result) +
 
 ```
 
+####tes add stops
+
+```{r, scenario 1 2022, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+
+
+
+# Make Predictions with the New Scenario Data
+predictions_add_stops <- predict(RF_model2, newdata = table_test)
+
+# Add Predictions to the Data
+table_test$Predicted_Avg_ridership <- predictions_add_stops
+
+# Add Monthly Prediction Column
+table_test <- table_test %>%
+  mutate(Monthly_prediction = Predicted_Avg_ridership * Number_of_)
+
+# Format Predicted Avg Ridership as Decimal Numbers
+#RF2_table_2022_scenario1$Monthly_prediction <- sprintf("%.2f", predictions2_2022_scenario1)
+
+# Convert Data to an sf Object
+table_test_sf <- st_as_sf(table_test, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+table_test_sf$Monthly_prediction <- as.numeric(table_test_sf$Monthly_prediction)
+
+result <- table_test_sf[table_test_sf$Monthly_prediction <= 10, ]
+result <- result[result$Month == 'January', ]
+
+filtered_table2_sf <- st_as_sf(filtered_table2, geom = "geometry")
+
+# Plot the Map with Correct Fill Scale
+ggplot(result) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+#  geom_sf(data = dat2022,aes(fill = (PopDensity_km2)), alpha = 0.5) +
+#  scale_fill_gradient(low = "white", high = "grey20") + 
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = filtered_table2_sf, fill = "red", alpha = 0.8) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario VI", color = "Predicted Avg Ridership with \n10 New Added Stops")+
+  theme(legend.position = "bottom")
+
+
+#file_path <- "scenario4underperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
+
+
+
+```
 
 ###### Increase in Population Density 30%
 
