@@ -2240,14 +2240,15 @@ result <- result[result$Month == 'January', ]
 ggplot(result) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
-  geom_sf(aes(color = Monthly_prediction), size = .5) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
   scale_color_gradient(low = "#FFBD37", high = "#005357") +
   mapTheme() +
-  labs(title = "Predicted Avg Ridership under 10 in January: Scenario I", color = "Predicted Avg Ridership with \n15% Increase in Population Density")
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario I", color = "Predicted Avg Ridership with \n15% Increase in Population Density")+
+  theme(legend.position = "bottom")
 
 
-file_path <- "scenario1underperforming.geojson"
-st_write(result, file_path, driver = "GeoJSON")
+#file_path <- "scenario1underperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
 
 
 
@@ -2329,13 +2330,14 @@ result <- result[result$Month == 'January', ]
 ggplot(result) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
-  geom_sf(aes(color = Monthly_prediction), size = .5) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
   scale_color_gradient(low = "#FFBD37", high = "#005357") +
   mapTheme() +
-  labs(title = "Predicted Avg Ridership under 10 in January: Scenario I", color = "Predicted Avg Ridership with \n30% Increase in Population Density")
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario I", color = "Predicted Avg Ridership with \n30% Increase in Population Density")+
+  theme(legend.position = "bottom")
 
-file_path <- "scenario1aunderperforming.geojson"
-st_write(result, file_path, driver = "GeoJSON")
+#file_path <- "scenario1aunderperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
 
 
 ```
@@ -2415,13 +2417,14 @@ result <- result[result$Month == 'January', ]
 ggplot(result) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
-  geom_sf(aes(color = Monthly_prediction), size = .5) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
   scale_color_gradient(low = "#FFBD37", high = "#005357") +
   mapTheme() +
-  labs(title = "Predicted Avg Ridership under 10 in January: Scenario II", color = "Predicted Avg Ridership with \n25% Increase in Median Income")
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario II", color = "Predicted Avg Ridership with \n25% Increase in Median Income")+
+  theme(legend.position = "bottom")
 
-file_path <- "scenario2underperforming.geojson"
-st_write(result, file_path, driver = "GeoJSON")
+#file_path <- "scenario2underperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
 
 ```
 
@@ -2500,14 +2503,15 @@ result <- result[result$Month == 'January', ]
 ggplot(result) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
-  geom_sf(aes(color = Monthly_prediction), size = .5) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
   scale_color_gradient(low = "#FFBD37", high = "#005357") +
   mapTheme() +
-  labs(title = "Predicted Avg Ridership under 10 in January: Scenario II", color = "Predicted Avg Ridership with \n50% Increase in Median Income")
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario II", color = "Predicted Avg Ridership with \n50% Increase in Median Income")+
+  theme(legend.position = "bottom")
 
 
-file_path <- "scenario2aunderperforming.geojson"
-st_write(result, file_path, driver = "GeoJSON")
+#file_path <- "scenario2aunderperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
 
 
 
@@ -2728,14 +2732,19 @@ result <- result[result$Month == 'January', ]
 ggplot(result) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
-  geom_sf(aes(color = Monthly_prediction), size = .5) +
+  geom_sf(data = silver_routes, color = "purple", size = 7, alpha = 0.5) +
+  geom_sf(data = red_routes,color = "#FF6347", size = 7, alpha = 0.5) +
+  geom_sf(data = blue_routes, color = "#4682B4", size = 7, alpha = 0.5) +
+  geom_sf(data = gold_routes,color = "#FFD700", size = 7, alpha = 0.5) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
   scale_color_gradient(low = "#FFBD37", high = "#005357") +
   mapTheme() +
-  labs(title = "Predicted Avg Ridership under 10 in January: Scenario III", color = "Predicted Avg Ridership \nwith proposed transit lines added")
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario III", color = "Predicted Avg Ridership \nwith Proposed Transit Lines Added")+
+  theme(legend.position = "bottom")
 
 
-file_path <- "scenario3underperforming.geojson"
-st_write(result, file_path, driver = "GeoJSON")
+#file_path <- "scenario3underperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
 
 
 ```
