@@ -2239,7 +2239,10 @@ result <- result[result$Month == 'January', ]
 # Plot the Map with Correct Fill Scale
 ggplot(result) +
   geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+#  geom_sf(data = dat2022,aes(fill = (PopDensity_km2)), alpha = 0.5) +
+#  scale_fill_gradient(low = "white", high = "grey20") + 
   geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  
   geom_sf(aes(color = Monthly_prediction), size = 1) +
   scale_color_gradient(low = "#FFBD37", high = "#005357") +
   mapTheme() +
