@@ -1,0 +1,2882 @@
+---
+title: "Combined Markdown"
+author: "Teresa Chang, Roshini Ganesh, Jingyi Li, Jonathan Manurung"
+date: "2024-02-27"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+### 1. Introduction
+
+In 2021, the Charlotte Area Transit System (CATS) embarked on 'The Bus Priority Study' as part of the city's larger Strategic Mobility Plan, aiming to enhance bus trips' speed, reliability, and convenience for riders. To achieve this, CATS set out to understand recent dynamics, explore accessibility, and examine network efficiencies.
+
+#### 1.1 CATS identified three primary objectives:
+
+1. Understanding recent bus ridership dynamics involved 
+2. Exploring thepresent reality of bus accessibility, considering ridership trends and demographic distributions.
+3. Examining network efficiencies and possibilities 
+
+#### 1.2 Actions required related to objectives
+Identify underperforming bus stops
+Study demographic, spatial, and economic factors influencing ridership and performance  
+Alter current network of stops and routes  to optimize transit services.
+
+
+### 2. Use case
+Our team will support CATS transportation planners in improving bus line efficiency by analyzing historical ridership trends per bus stop to identify and predict underperforming stops and routes. 
+
+With this, we will propose alternate network options through a web-based dashboard that presents predictions with the context of demographic, spatial, financial factors of influence. 
+
+
+```{r setup, include=FALSE}
+# You can set some global options for knitting chunks
+
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load some libraries
+
+library(tidyverse)
+library(sf)
+library(spdep)
+library(caret)
+library(ckanr)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(ggcorrplot) # plot correlation plot
+library(corrr)      # another way to plot correlation plot
+library(kableExtra)
+library(jtools)     # for regression model plots
+library(ggstance) # to support jtools plots
+library(ggpubr)    # plotting R^2 value on ggplot point scatter
+library(broom.mixed) # needed for effects plots
+library(tidycensus)
+library(kableExtra)
+library(stargazer)
+library(readxl)
+library(zoo)
+library(cowplot)
+library(patchwork)
+library(randomForest)
+library(caret)
+
+# functions and data directory
+
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+palette5 <- c("#edf8fb","#ccece6","#99d8c9","#2ca25f","#006d2c")
+palette7 <- c("white","#edf8fb","#ccece6","#99d8c9","#2ca25f","#006d2c", "black")
+red_palette <- c("#FFD3D3", "#FFA8A8", "#FF7D7D", "#FF5252", "#FF0000")
+positive_palette <- c("darkgreen", "green", "yellow", "#FFAB00", "red")
+negative_palette <- c("blue", "lightblue", "grey80", "grey60", "grey40")
+
+positive_paletteaccent <- c("#006d2c", "#2ca25f", "#FFCB62", "#FFAB00", "#C60500")
+negative_paletteaccent <- c("#0077B6", "#7ACFD3", "grey80", "grey60", "grey40")
+
+palettebase5 <- c("#edf8fb","#7ACFD3","#3AA8AE","#2D8388","#005357")
+palettebase7 <- c("#edf8fb","#7ACFD3","#54C1C6","#3AA8AE","#2D8388","#016F74","#005357")
+palettebase <- c("#7ACFD3","#67C8C8","#54C1C6","#41BAC0","#3AA8AE","#33969B","#2D8388","#016F74","#005357")
+paletteaccent <- c("#46AFB4","#249DA2","#01939A","#017278","#005A5E","#FFCB62","#FFBD37","#FFAB00","#C68500","#9C6900","#FF6662","#FF3C37","#FF0700","#C60500","#9C0400")
+
+red_paletteaccent <- c("#FFD3D3","#FFA8A8","#FF0700","#C60500","#9C0400")
+yellow_paletteaccent <- c("#FFE6A7","#FFBD37","#FFAB00","#C68500","#9C6900")
+
+census_api_key("ab9309f9cc70c0e1895e7166c3ca981c40cf0331", overwrite = TRUE , install = TRUE)
+```
+
+### 3. Data 
+
+#### 3.1 Datasets considered
+
+To analyze and forecast performance trends, we have used ridership data from CATS for the years between 2017 and 2023. Additionally we have identified potential demographic, spatial, and economic parameters that may influence our predictor variable that is ridership. 
+
+#### 3.2 Limitations of dataset
+
+On initial review, certain limitations of the data present themselves. These include:
+1. No hourly ridership data is available precluding us from analyzing peak hour trends
+2. Weekend vs weekday ridership is not available which leads to the assumption of similar usage patterns of weekends, weekdays, and holidays
+3. Data on stops added or removed in these years of study is not explicit 
+4. Only stop locations are made available which means route locations will have to be sourced and spatially joined. This allows us to join only the most recent route data for these stops.
+5. The dataset for 2023 is incomplete and only includes data for months January to November.
+
+
+```{r cars, warning=FALSE, message=FALSE, include=FALSE}
+stops<-read_csv('AllDat.csv')
+bus_routes <- st_read("Data/Bus_Routes.geojson")%>%
+  st_transform('EPSG:3358')
+school <- st_read("Data/Schools.geojson")%>%
+  st_transform('EPSG:3358')
+
+parks <- st_read("Data/Parks.geojson")%>%
+  st_transform('EPSG:3358')
+
+groceries <-
+  st_read("Data/Grocery_Stores.geojson")%>%
+  st_transform('EPSG:3358')
+
+shoppingcen <-
+  st_read("Data/Existing_Shopping_Centers.geojson")%>%
+  st_transform('EPSG:3358')
+
+policeoffice <-
+  st_read("Data/CMPD_Police_Division_Offices.geojson") %>%
+  st_transform('EPSG:3358')
+
+# Create a vector of years
+years <- c(2017, 2018, 2019, 2020, 2021, 2022)
+
+# Loop through the years to load variables
+variables_list <- lapply(years, function(year) {
+  load_variables(year, "acs5", cache = TRUE)
+})
+
+# Combine the variables from different years into a single data frame
+all_variables <- do.call(rbind, variables_list)
+
+hlt <- st_read("Bus Transit Data/Bus_Stops_With_Frequency_HLT.geojson")
+
+# 2017 census
+dat2017 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E","B08201_001E",
+                        "B08201_002E","B08201_003E",
+                        "B08201_004E","B08201_005E",
+                        "B08201_006E","B08201_007E",
+                        "B08301_002E","B08301_016E",
+                        "B08301_017E","B08301_018E",
+                        "B08301_019E"), 
+          year=2017, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('EPSG:3358') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Workfromhome = B08111_031E,
+         Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E,
+         Workbycar = B08301_002E,
+         Workbytaxi = B08301_016E,
+         Workbymotor = B08301_017E,
+         Workbybike = B08301_018E,
+         Workbywalk = B08301_019E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(PopDensity_km2 = ifelse(TotalPop > 0, TotalPop / (st_area(.) / 1e6), 0),
+         TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctworkfromhome = ifelse(Commutetowork > 0, Workfromhome / Commutetowork, 0),
+         pctworkbycar = ifelse(Commutetowork > 0, Workbycar / Commutetowork, 0),
+         pctworkbytaxi = ifelse(Commutetowork > 0, Workbytaxi / Commutetowork, 0),
+         pctworkbymotor = ifelse(Commutetowork > 0, Workbymotor / Commutetowork, 0),
+         pctworkbybike = ifelse(Commutetowork > 0, Workbybike / Commutetowork, 0),
+         pctworkbywalk = ifelse(Commutetowork > 0, Workbywalk / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2017") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+
+# census 2018
+dat2018 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E","B08201_001E",
+                        "B08201_002E","B08201_003E",
+                        "B08201_004E","B08201_005E",
+                        "B08201_006E","B08201_007E",
+                        "B08301_002E","B08301_016E",
+                        "B08301_017E","B08301_018E",
+                        "B08301_019E"), 
+          year=2018, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('EPSG:3358') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Workfromhome = B08111_031E,
+         Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E,
+         Workbycar = B08301_002E,
+         Workbytaxi = B08301_016E,
+         Workbymotor = B08301_017E,
+         Workbybike = B08301_018E,
+         Workbywalk = B08301_019E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(PopDensity_km2 = ifelse(TotalPop > 0, TotalPop / (st_area(.) / 1e6), 0),
+         TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctworkfromhome = ifelse(Commutetowork > 0, Workfromhome / Commutetowork, 0),
+         pctworkbycar = ifelse(Commutetowork > 0, Workbycar / Commutetowork, 0),
+         pctworkbytaxi = ifelse(Commutetowork > 0, Workbytaxi / Commutetowork, 0),
+         pctworkbymotor = ifelse(Commutetowork > 0, Workbymotor / Commutetowork, 0),
+         pctworkbybike = ifelse(Commutetowork > 0, Workbybike / Commutetowork, 0),
+         pctworkbywalk = ifelse(Commutetowork > 0, Workbywalk / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2018") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+
+#census 2019
+dat2019 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E","B08201_001E",
+                        "B08201_002E","B08201_003E",
+                        "B08201_004E","B08201_005E",
+                        "B08201_006E","B08201_007E",
+                        "B08301_002E","B08301_016E",
+                        "B08301_017E","B08301_018E",
+                        "B08301_019E"), 
+          year=2019, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('EPSG:3358') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Workfromhome = B08111_031E,
+         Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E,
+         Workbycar = B08301_002E,
+         Workbytaxi = B08301_016E,
+         Workbymotor = B08301_017E,
+         Workbybike = B08301_018E,
+         Workbywalk = B08301_019E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(PopDensity_km2 = ifelse(TotalPop > 0, TotalPop / (st_area(.) / 1e6), 0),
+         TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctworkfromhome = ifelse(Commutetowork > 0, Workfromhome / Commutetowork, 0),
+         pctworkbycar = ifelse(Commutetowork > 0, Workbycar / Commutetowork, 0),
+         pctworkbytaxi = ifelse(Commutetowork > 0, Workbytaxi / Commutetowork, 0),
+         pctworkbymotor = ifelse(Commutetowork > 0, Workbymotor / Commutetowork, 0),
+         pctworkbybike = ifelse(Commutetowork > 0, Workbybike / Commutetowork, 0),
+         pctworkbywalk = ifelse(Commutetowork > 0, Workbywalk / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2019") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+
+# census 2020
+dat2020 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E","B08201_001E",
+                        "B08201_002E","B08201_003E",
+                        "B08201_004E","B08201_005E",
+                        "B08201_006E","B08201_007E",
+                        "B08301_002E","B08301_016E",
+                        "B08301_017E","B08301_018E",
+                        "B08301_019E"), 
+          year=2020, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('EPSG:3358') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Workfromhome = B08111_031E,
+         Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E,
+         Workbycar = B08301_002E,
+         Workbytaxi = B08301_016E,
+         Workbymotor = B08301_017E,
+         Workbybike = B08301_018E,
+         Workbywalk = B08301_019E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(PopDensity_km2 = ifelse(TotalPop > 0, TotalPop / (st_area(.) / 1e6), 0),
+         TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctworkfromhome = ifelse(Commutetowork > 0, Workfromhome / Commutetowork, 0),
+         pctworkbycar = ifelse(Commutetowork > 0, Workbycar / Commutetowork, 0),
+         pctworkbytaxi = ifelse(Commutetowork > 0, Workbytaxi / Commutetowork, 0),
+         pctworkbymotor = ifelse(Commutetowork > 0, Workbymotor / Commutetowork, 0),
+         pctworkbybike = ifelse(Commutetowork > 0, Workbybike / Commutetowork, 0),
+         pctworkbywalk = ifelse(Commutetowork > 0, Workbywalk / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2020") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale)
+
+# census 2021
+dat2021 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E","B08201_001E",
+                        "B08201_002E","B08201_003E",
+                        "B08201_004E","B08201_005E",
+                        "B08201_006E","B08201_007E",
+                        "B08301_002E","B08301_016E",
+                        "B08301_017E","B08301_018E",
+                        "B08301_019E"), 
+          year=2021, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('EPSG:3358') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Workfromhome = B08111_031E,
+         Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E,
+         Workbycar = B08301_002E,
+         Workbytaxi = B08301_016E,
+         Workbymotor = B08301_017E,
+         Workbybike = B08301_018E,
+         Workbywalk = B08301_019E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(PopDensity_km2 = ifelse(TotalPop > 0, TotalPop / (st_area(.) / 1e6), 0),
+         TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctworkfromhome = ifelse(Commutetowork > 0, Workfromhome / Commutetowork, 0),
+         pctworkbycar = ifelse(Commutetowork > 0, Workbycar / Commutetowork, 0),
+         pctworkbytaxi = ifelse(Commutetowork > 0, Workbytaxi / Commutetowork, 0),
+         pctworkbymotor = ifelse(Commutetowork > 0, Workbymotor / Commutetowork, 0),
+         pctworkbybike = ifelse(Commutetowork > 0, Workbybike / Commutetowork, 0),
+         pctworkbywalk = ifelse(Commutetowork > 0, Workbywalk / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2021") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+
+# census 2022
+dat2022 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B02001_002E",
+                        "B02001_003E","B02001_005E",
+                        "B15001_050E","B15001_009E",
+                        "B19013_001E","B25058_001E",
+                        "B06012_002E","B08301_001E",
+                        "B08301_011E","B01001_002E",
+                        "B01001_026E","B08111_031E",
+                        "B24080_001E","B24080_002E",
+                        "B24080_012E","B08201_001E",
+                        "B08201_002E","B08201_003E",
+                        "B08201_004E","B08201_005E",
+                        "B08201_006E","B08201_007E",
+                        "B08301_002E","B08301_016E",
+                        "B08301_017E","B08301_018E",
+                        "B08301_019E"), 
+          year=2022, state=37, county=119, 
+          geometry=TRUE, output="wide") %>%
+  st_transform('EPSG:3358') %>%
+  rename(TotalPop = B25026_001E, 
+         Whites = B02001_002E,
+         Africanamerican = B02001_003E,
+         Asian = B02001_005E,
+         Male = B01001_002E,
+         Female = B01001_026E,
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         Workermale= B24080_002E,
+         Workerfemale= B24080_012E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E,
+         TotalPoverty = B06012_002E,
+         Workfromhome = B08111_031E,
+         Total = B08201_001E,
+         car0 = B08201_002E,
+         car1 = B08201_003E,
+         car2 = B08201_004E,
+         car3 = B08201_005E,
+         car4 = B08201_006E,
+         car5more = B08201_007E,
+         Commutetowork = B08301_001E,
+         Workwithbus = B08301_011E,
+         Workbycar = B08301_002E,
+         Workbytaxi = B08301_016E,
+         Workbymotor = B08301_017E,
+         Workbybike = B08301_018E,
+         Workbywalk = B08301_019E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(PopDensity_km2 = ifelse(TotalPop > 0, TotalPop / (st_area(.) / 1e6), 0),
+         TotalWorker = (Workermale +Workerfemale),
+         pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
+         pctAfricanamerican = ifelse(TotalPop > 0, Africanamerican / TotalPop,0),
+         pctAsian = ifelse(TotalPop > 0, Asian / TotalPop,0),
+         pctOther = ifelse(TotalPop > 0, (TotalPop - Whites - Africanamerican - Asian) / TotalPop,0),
+         pctMale = ifelse(TotalPop > 0, (Male / TotalPop),0),
+         pctFemale = ifelse(TotalPop > 0, (Female / TotalPop),0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctWorker = ifelse(TotalPop > 0, (Workermale + Workerfemale) / TotalPop, 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         pctworkwithbus = ifelse(Commutetowork > 0, Workwithbus / Commutetowork, 0),
+         pctworkfromhome = ifelse(Commutetowork > 0, Workfromhome / Commutetowork, 0),
+         pctworkbycar = ifelse(Commutetowork > 0, Workbycar / Commutetowork, 0),
+         pctworkbytaxi = ifelse(Commutetowork > 0, Workbytaxi / Commutetowork, 0),
+         pctworkbymotor = ifelse(Commutetowork > 0, Workbymotor / Commutetowork, 0),
+         pctworkbybike = ifelse(Commutetowork > 0, Workbybike / Commutetowork, 0),
+         pctworkbywalk = ifelse(Commutetowork > 0, Workbywalk / Commutetowork, 0),
+         pctnocar = ifelse(Total > 0, car0 / Total, 0),
+         pct1car = ifelse(Total > 0, car1 / Total, 0),
+         pct2car = ifelse(Total > 0, car2 / Total, 0),
+         pct3car = ifelse(Total > 0, car3 / Total, 0),
+         pct4car = ifelse(Total > 0, car4 / Total, 0),
+         pct5car = ifelse(Total > 0, car5more / Total, 0),
+         year = "2022") %>%
+  dplyr::select(-Whites, -Africanamerican, -Asian, -Male, -Female, -FemaleBachelors, -MaleBachelors, -TotalPoverty, -Workermale, -Workerfemale) 
+```
+
+#### 3.3 Data Wrangling
+
+```{r pressure, , warning=FALSE, message=FALSE, include=FALSE, echo=FALSE}
+#feature engineering
+school.sf <-
+  school %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+
+parks.sf <-
+  parks %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+
+groceries.sf <-
+  groceries %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+
+shoppingcen.sf <-
+  shoppingcen %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+
+policeoffice.sf <-
+  policeoffice %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    filter(!st_is_empty(.))%>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:3358")%>%
+    distinct()
+
+silver_stops <- st_read("Data/LYNX_Silver_Line_Stations_Proposed.geojson")%>%
+  st_transform('EPSG:3358')
+
+silver_routes <- st_read("Data/LYNX_Silver_Line_Route_Proposed.geojson")%>%
+  st_transform('EPSG:3358')
+
+blue_stops <-
+  st_read("Data/LYNX_Blue_Line_Stations.geojson")%>%
+  st_transform('EPSG:3358')
+
+blue_routes <-
+  st_read("Data/LYNX_Blue_Line_Route.geojson")%>%
+  st_transform('EPSG:3358')
+
+gold_stops <-
+  st_read("Data/LYNX_Gold_Line_Stops.geojson")%>%
+  st_transform('EPSG:3358')
+
+gold_routes <-
+  st_read("Data/LYNX_Gold_Line_Route.geojson")%>%
+  st_transform('EPSG:3358')
+
+red_stops <-
+  st_read("Data/LYNX_Red_Line_Stations_Proposed.geojson")%>%
+  st_transform('EPSG:3358')
+
+red_routes <-
+  st_read("Data/LYNX_Red_Line_Route_Proposed.geojson")%>%
+  st_transform('EPSG:3358')
+
+
+allTracts <- rbind(
+  dat2017,
+  dat2018,
+  dat2019,
+  dat2020,
+  dat2021,
+  dat2022)
+sf_allTracts <- st_as_sf(allTracts, wkt = "geometry")
+
+bus_data <- stops %>% mutate(`Stop ID` = sprintf("%05s", `Stop ID`))
+busstop_sf <- st_as_sf(bus_data, coords = c("Longitude", "Latitude"), crs = 4326)
+catsstop_sf <- st_as_sf(stops, coords = c("Longitude", "Latitude"), crs = 2264)  # Assuming NAD 83/North Carolina (ftUS)
+#Reproject catsstop_sf to WGS 84 (EPSG:4326)
+catsstop_sf <- st_transform(catsstop_sf, 4326)
+busstop_sf <- st_transform(busstop_sf, 3358)
+catsstop_sf <- st_transform(catsstop_sf, 3358)
+routes_sf <- st_transform(bus_routes, 3358)
+allTracts_sf <- st_transform(allTracts, 3358)
+
+bus_stops.sf <-
+  stops %>%
+    st_as_sf(coords = c("Longitude", "Latitude"), crs = "EPSG:3358")%>%
+    distinct()
+
+```
+
+
+#### 3.4 APC data
+
+```{r, warning = FALSE, message=FALSE}
+ggplot(busstop_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = Board), size = .3) +
+  scale_color_gradient(low = "#FFAB00", high = "darkgreen") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Board Value")
+
+ggplot(busstop_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = Alight), size = .3) +
+  scale_color_gradient(low = "#FFAB00", high = "darkgreen") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Alight Value")
+
+```
+
+### 4. Initial Trends
+
+1. Ridership does not seem to vary too much over the years across all stops based on the given CATS dataset. However, demographic data from ACS 2022 suggests that there has been a steep decline in the percentage of people who commute to work by bus over the last 7 years. This may be attributed to more wealthy people working from home along with more economically disadvantaged people choosing to take the bus. 
+2. The global trend suggests that bus ridership during the pandemic did not drop significantly. We suspect that the consistent ridership profile may be due to errors in recording the data for pandemic years. 
+
+#### 4.1 Performance before and after the COVID-19 pandemic
+
+To investigate the nature of performance before and after pandemic years further, the difference between average ridership is mapped pre Covid (2017- 2020/3) and post Covid (2020/3 - 2023). This mapping exercise indicates that ridership has decreased in most bus stops post the pandemic. Additionally, some stops show a hundred percent decline. These are filtered out because it may indicate that the stop is no longer in service.
+
+Next, stops with an increase in ridership are separated from stops with a decrease and the results are mapped. This suggests that a majority of stops in the city center have experienced a decrease in ridership. This spatial clustering of underperforming stops suggests areas for targeted intervention.
+
+
+```{r, warning=FALSE, message=FALSE, include=FALSE}
+# threshold: date of covid bgan
+threshold_date <- as.Date("2020-03-01") 
+
+stops_data <- stops %>%
+  mutate(Numeric_Month = match(Month, month.name)) %>%
+  mutate(Readable_Date = as.yearmon(paste(Year, sprintf("%02d", Numeric_Month)), "%Y %m")) %>%
+  mutate(Covid_Status = ifelse(as.Date(Readable_Date) >= threshold_date, "Post", "Pre"))%>%
+  rename(Stop_Name = `Stop Name`)%>%
+  rename(Stop_ID = `Stop ID`)
+
+# Calculate the increase/decrease
+average_board <- stops_data %>%
+  group_by(Stop_Name, Numeric_Month, Covid_Status) %>%
+  summarize(Avg_Board = mean(Avg_Board, na.rm = TRUE))
+
+average_board_pivoted <- pivot_wider(average_board, names_from = Covid_Status, values_from = Avg_Board)
+
+average_board_pivoted <- average_board_pivoted %>%
+  mutate(Difference = (Post - Pre)/Pre *100 ) %>%
+  select(Stop_Name, Numeric_Month, Pre, Post, Difference)
+
+average_board_pivoted <- na.omit(average_board_pivoted)
+# join the longitude and latitude data back and select the first one
+average_board_pivoted <- average_board_pivoted %>%
+  left_join(stops_data %>% select(Stop_Name, Longitude, Latitude) %>% distinct(Stop_Name, .keep_all = TRUE), by = "Stop_Name")
+
+# Adjust the month as needed
+selected_month <- 1  
+selected_data <- average_board_pivoted %>%
+  filter(Numeric_Month == selected_month)
+
+stops_sf <- st_as_sf(selected_data, coords = c("Longitude", "Latitude"), crs = 4326)
+stops_sf <- st_transform(stops_sf, crs = 3358)  # NAD83 North Carolina
+
+```
+
+##### 4.1.1 All stops from 2017\~2023
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+palettebase5_rev <- rev(palettebase5)
+
+#ggplot() +
+#  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5 , color = NA)+
+#  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+#  geom_sf(data = stops_sf , aes(colour = q5(Difference)), 
+#          show.legend = "point", size = 1, alpha= 0.5) +
+#  scale_colour_manual(values = palettebase5_rev,
+#                   labels=qBr(stops_sf ,"Difference"),
+#                   name="Quintile\nBreaks (%)") +
+#  labs(title = paste("Difference (%) - Month:", selected_month),
+#       fill = "Difference (Post - Pre)") +
+#  mapTheme()
+
+filtered_stops_sf <- stops_sf[stops_sf$Difference != -100, ]
+
+ggplot() +
+  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5 , color = NA)+
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = filtered_stops_sf , aes(colour = q5(Difference)), 
+          show.legend = "point", size = 1, alpha= 0.5) +
+  scale_colour_manual(values = palettebase5_rev,
+                   labels=qBr(filtered_stops_sf ,"Difference"),
+                   name="Quintile\nBreaks (%)") +
+  labs(title = paste("Difference (%) (-100% excluded)   - Month:", selected_month),
+       fill = "Difference (Post - Pre)") +
+  mapTheme()
+```
+
+##### 4.1.2 Increase vs Decrease
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+stops_sf$PositiveDifference <- stops_sf$Difference > 0
+positive_stops_sf <- stops_sf[stops_sf$PositiveDifference,]
+negative_stops_sf <- stops_sf[!stops_sf$PositiveDifference,]
+
+yellow_paletteaccent_rev <- rev(yellow_paletteaccent)
+
+# positive and negative differences
+positive_plot <- ggplot(positive_stops_sf, aes(colour = q5(Difference))) +
+  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(size = 1) +
+  scale_color_manual(values = red_paletteaccent,
+                     labels = qBr(positive_stops_sf, "Difference"),
+                     name = "Quintile\nBreaks (%)") +
+  labs(title = paste("Positive Increase (%) - Month:", selected_month),
+       fill = "Positive Difference (Post - Pre)") +
+  mapTheme()
+
+negative_plot <- ggplot(negative_stops_sf, aes(colour = q5(Difference))) +
+  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(size = 1) +
+  scale_color_manual(values = yellow_paletteaccent_rev,
+                     labels = qBr(negative_stops_sf, "Difference"),
+                     name = "Quintile\nBreaks (%)") +
+  labs(title = paste("Negative Decrease (%) - Month:", selected_month),
+       fill = "Negative Difference (Post - Pre)") +
+  mapTheme()
+
+#combined_plot <- plot_grid(positive_plot, negative_plot, ncol = 2)
+#print(combined_plot)
+
+# Exclude -100%
+filtered_negative_stops_sf <- negative_stops_sf[negative_stops_sf$Difference != -100, ]
+
+negative_plot <- ggplot(filtered_negative_stops_sf, aes(colour = q5(Difference))) +
+  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(size = 1) +
+  scale_color_manual(values = yellow_paletteaccent_rev,
+                     labels = qBr(filtered_negative_stops_sf, "Difference"),
+                     name = "Quintile\nBreaks (%)") +
+  labs(title = paste("Negative Decrease (%) (-100% excluded) - Month:", selected_month),
+       fill = "Negative Difference (Post - Pre)") +
+  mapTheme()
+combined_plot <- plot_grid(positive_plot, negative_plot, ncol = 2)
+
+print(combined_plot)
+```
+
+> From the plotted maps, there is a majority of stops in Charlotte’s city center that have experienced a decrease in ridership before and after the COVID-19 pandemic
+
+
+
+#### 4.2 Top 50 underperforming stops from 2017 to 2023
+
+Between 2017-2023, there is a uniform trend of underperformance in certain underperforming stops. Other underperforming stops exhibit a growing trend of underperformance post the pandemic. About half of these stops exhibit spatial clustering patterns and are located along a single route.
+
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+# filter underperforming stops
+underperforming_stops <- stops_data[(stops_data$Board + stops_data$Alight) <= 10, ]
+underperformance_counts <- table(underperforming_stops$Stop_ID)
+
+
+top_50_stops <- names(sort(underperformance_counts, decreasing = TRUE)[1:50])
+underperforming_top_50 <- underperforming_stops[underperforming_stops$Stop_ID %in% top_50_stops, ]
+underperforming_top_50 <- underperforming_top_50 %>%
+  mutate(Total_Board_Alight = Board + Alight)
+
+# Order
+underperforming_top_50$Stop_ID <- factor(underperforming_top_50$Stop_ID, levels = rev(top_50_stops))
+
+stacked_bar_plot <- ggplot(underperforming_top_50, aes(x = Stop_ID, fill = factor(Year))) +
+  geom_bar(stat = "count", position = "stack", color = "darkgrey" ) +
+  labs(title = "Top 50 Bus Stops with Highest Underperformance Counts",
+       x = "Bus Stop Name",
+       y = "Number of Times Underperformed",
+       fill = "Year") +
+  scale_fill_manual(values = palettebase7) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate x-axis labels
+## print(stacked_bar_plot) 
+
+underperforming_top_50_all_sf <- st_as_sf(underperforming_top_50, coords = c("Longitude", "Latitude"), crs = 4326)
+underperforming_top_50_all_sf <- st_transform(underperforming_top_50_all_sf, crs = 3358)  # NAD83 North Carolina
+
+
+map_plot_top_50 <- ggplot() +
+  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_50_all_sf, aes(colour = q5(Total_Board_Alight)), size = 2) +
+  scale_color_manual(values = rev(palettebase5),
+                     labels = qBr(underperforming_top_50_all_sf, "Total_Board_Alight"),
+                     name = "Quintile\nBreaks") +
+  labs(title = "Top 50 Bus Stops with Highest Underperformance Counts (2017 - 2023)",
+       fill = "Avg_Board + Avg_Alight") +
+  mapTheme()
+## print(map_plot_top_50) 
+
+combined_plot <- stacked_bar_plot + map_plot_top_50
+print(combined_plot)
+```
+
+#### 4.3 Top 50 underperforming stops in 2022
+
+The underperformance and spatial clustering trends in 2023 are consistent with the overall trend.
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+# Underperforming Stops in 2022
+underperforming_stops_2022 <- stops_data[(stops_data$Board + stops_data$Alight) <= 10 & stops_data$Year == 2022, ]
+underperformance_counts_2022 <- table(underperforming_stops_2022$Stop_ID)
+
+# Top 30 Stops for 2023
+top_50_stops_2022 <- names(sort(underperformance_counts_2022, decreasing = TRUE)[1:50])
+underperforming_top_50_2022 <- underperforming_stops_2022[underperforming_stops_2022$Stop_ID %in% top_50_stops_2022, ]
+
+
+# Order
+underperforming_top_50_2022$Stop_ID <- factor(underperforming_top_50_2022$Stop_ID, levels = rev(top_50_stops_2022))
+
+bar_plot_top_50_2022 <- ggplot(underperforming_top_50_2022, aes(x = Stop_ID, fill = "2022")) +
+  geom_bar(stat = "count", color = "black") +
+  labs(title = "Top 50 Bus Stops with Highest Underperformance Counts",
+       x = "Bus Stop Name",
+       y = "Number of Times Underperformed",
+       fill = "Year") +
+  scale_fill_manual(values = c("2022" = "#7ACFD3"), name = "Year") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+##print(bar_plot_top_50_2022)
+
+underperforming_top_50_2022 <- underperforming_top_50_2022 %>%
+  mutate(Total_Board_Alight = Board + Alight)
+
+
+underperforming_top_50_sf <- st_as_sf(underperforming_top_50_2022, coords = c("Longitude", "Latitude"), crs = 4326)
+underperforming_top_50_sf <- st_transform(underperforming_top_50_sf, crs = 3358)  # NAD83 North Carolina
+
+map_plot_top_50_2022 <- ggplot() +
+  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_50_sf, aes(colour = q5(Total_Board_Alight)), size = 2) +
+  scale_color_manual(values = rev(palettebase5),
+                     labels = qBr(underperforming_top_50_sf, "Total_Board_Alight"),
+                     name = "Quintile\nBreaks") +
+  labs(title = "Top 50 Bus Stops with Highest Underperformance Counts in 2022",
+       fill = "Total_Board_Alight") +
+  mapTheme()
+##print(map_plot_top_50_2022)
+
+combined_plot <- bar_plot_top_50_2022 + map_plot_top_50_2022
+print(combined_plot)
+```
+
+
+> Some stops exhibit a growing trend of underperformance post the pandemic.About half of these stops exhibit spatial clustering patterns and are located along a single route. The underperformance and clustering trends in 2022 are consistent with the overall trend in the city center area.
+
+
+```{r, warning=FALSE, message=FALSE, fig.height=10, fig.width=8}
+##print(map_plot_top_50) 
+##print(map_plot_top_50_2022)
+
+##print(stacked_bar_plot) 
+##print(bar_plot_top_50_2022)
+```
+
+### 5. Spatial factors:
+
+#### 5.1 Existing and proposed transit lines and stations
+
+Other existing and proposed transit stops and routes are considered to study the relationship between infrastructure and underperforming stops, if any. If significant, the distance of bus stops to other transit stops would also serve as variables in the model.
+
+
+```{r, warning=FALSE, message=FALSE}
+transit <- ggplot() +
+  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, aes(color = "Bus Route"), size = 5, alpha = 0.5) +
+  geom_sf(data = blue_routes, aes(color = "Blue Line"), size = 8) +
+  geom_sf(data = blue_stops, aes(color = "Blue Line"), size = 2) +
+  geom_sf(data = gold_routes, aes(color = "Gold Line"), size = 8) +
+  geom_sf(data = gold_stops, aes(color = "Gold Line"), size = 2) +
+  geom_sf(data = silver_routes, aes(color = "Silver Line"), size = 8, linetype = "dashed") +
+  geom_sf(data = silver_stops, aes(color = "Silver Line"), size = 2, shape = 21) +
+  geom_sf(data = red_routes, aes(color = "Red Line"), size = 8, linetype = "dashed") +
+  geom_sf(data = red_stops, aes(color = "Red Line"), size = 2, shape = 21) +
+  
+  labs(title = "Existing and Proposed Transit Lines and Stops") +
+    scale_color_manual(name = "Lines",
+                     values = c("Bus Route" = "darkgrey",
+                                "Blue Line" = "#4682B4", 
+                                "Gold Line" = "#FFD700", 
+                                "Silver Line" = "purple", 
+                                "Red Line" = "#FF6347"),
+                     labels = c("Blue Line","Bus Routes", "Gold Line", "Proposed Red Line", "Proposed Silver Line")) +
+
+  mapTheme()
+
+print(transit)
+
+```
+
+#### 5.2 Density of Amenities
+
+Most amenities are clustered within the city center and expanded to the south, presenting an inequitable distribution. For model input, the distance to the amenities would serve as variables as well
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+A <- ggplot() + geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = school, color = "darkgrey", size = .5, alpha = 0.3) +
+  stat_density2d(data = data.frame(st_coordinates(school.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "#FFE6A7", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Schools") +
+  mapTheme()
+
+B <- ggplot() + geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = parks, color = "darkgrey", size = .5, alpha = 0.5) +
+  stat_density2d(data = data.frame(st_coordinates(parks.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "#7ACFD3", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Parks") +
+  mapTheme()
+
+C <- ggplot() + geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = groceries, color = "darkgrey", size = .5, alpha = 0.5) +
+  stat_density2d(data = data.frame(st_coordinates(groceries.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "#FFAB00", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Grocery Stores") +
+  mapTheme()
+
+D <- ggplot() + geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = policeoffice, color = "darkgrey", size = .5, alpha = 0.5) +
+  stat_density2d(data = data.frame(st_coordinates(policeoffice.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "#0077B6", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Police Offices") +
+  mapTheme()
+
+E <- ggplot() + geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = shoppingcen, color = "darkgrey", size = .5, alpha = 0.5) +
+  stat_density2d(data = data.frame(st_coordinates(shoppingcen.sf)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "grey", high = "#FF6662", name = "Density") +
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Shopping Centers") +
+  mapTheme()
+
+
+combined_maps <- A + B + C + D + E
+#combined_maps <- combined_maps / plot_layout(nrow = 2, ncol = 3)
+print(combined_maps)
+```
+
+### 6. Demographic Factors
+
+#### 6.1 Mode Trends 
+
+Almost all census tracts with a higher percentage of population that commute by bus to work are located close to bus stops. However, some suburban census tracts with a high percentage of population that commute by bus are far from bus stops. This may be considered as a variable that influences prediction.
+
+##### 6.1.1 By Year and Population
+
+```{r Trends by Year, warning=FALSE, message=FALSE, fig.width=8, fig.height=4}
+a <- ggplot(allTracts, aes(x = as.factor(year), y = TotalPop, fill = as.factor(year))) +
+  geom_bar(stat = "identity", color = "transparent") +
+  labs(title = "Total Population: 2017-2022", x = "Year", y = "Total Population") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 6)) +
+  scale_fill_manual(values = palettebase7)
+
+b <- ggplot(allTracts, aes(x = as.factor(year), y = TotalWorker, fill = as.factor(year))) +
+  geom_bar(stat = "identity", color = "transparent") +
+  labs(title = "Population of Worker: 2017-2022", x = "Year", y = "Total Population") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 6)) +
+  scale_fill_manual(values = palettebase7)
+
+c <- ggplot(allTracts, aes(x = as.factor(year), y = Workfromhome, fill = as.factor(year))) +
+  geom_bar(stat = "identity", color = "transparent") +
+  labs(title = "Population of Work from Home: 2017-2022", x = "Year", y = "Total Population") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 6)) +
+  scale_fill_manual(values = palettebase7)
+d <- ggplot(allTracts, aes(x = as.factor(year), y = Workwithbus, fill = as.factor(year))) +
+  geom_bar(stat = "identity", color = "transparent") +
+  labs(title = "Population of People Using Bus as Transportation to Work: 2017-2022", x = "Year", y = "Total Population") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 6)) +
+  scale_fill_manual(values = palettebase7)
+
+combined_plot <- grid.arrange(a,b,c,d, ncol = 4, top = c(2, 2))
+
+print(combined_plot)
+
+```
+
+##### 6.1.2 Mode Share
+
+The general trend of percentage of population commute by bus has decreased. The 2022 percentage is halved comparing to 2017 percentage. In comparison, the general trend of percentage of population commute by car has decreased as by more than 10%. Additionally, the general trend of percentage of population commute by bicycle has a subtle decrease. Over the 6 year, it decreased 0.07%. Finally, the general trend of percentage of population commute by walk has slightly increased. Its peak was during Covid-19, but post Covid-19 period, the rate drops.
+
+```{r, warning=FALSE, message=FALSE}
+allTracts$year <- as.numeric(allTracts$year)
+
+average_pct_bus <- allTracts %>%
+  group_by(year) %>%
+  summarise(avg_pct_bus = mean(pctworkwithbus))
+
+ggplot(average_pct_bus, aes(x = year, y = avg_pct_bus)) +
+  geom_line(color = "black",linewidth=1.5) +
+  geom_point(color = "red",size=3) +
+  labs(x = "Year", 
+       y = "Average Percentage of Population Commuting with Bus",
+       title = "Trend of Commuting by Bus from 2017 to 2022") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  theme_minimal()
+
+average_pct_car <- allTracts %>%
+  group_by(year) %>%
+  summarise(avg_pct_car = mean(pctworkbycar))
+
+ggplot(average_pct_car, aes(x = year, y = avg_pct_car)) +
+  geom_line(color = "black",linewidth=1.5) +
+  geom_point(color = "red",size=3) +
+  labs(x = "Year", 
+       y = "Average Percentage of Population Commuting by Car",
+       title = "Trend of Commuting by Car from 2017 to 2022") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  theme_minimal()
+
+average_pct_taxi <- allTracts %>%
+  group_by(year) %>%
+  summarise(avg_pct_taxi = mean(pctworkbytaxi))
+
+ggplot(average_pct_taxi, aes(x = year, y = avg_pct_taxi)) +
+  geom_line(color = "black",linewidth=1.5) +
+  geom_point(color = "red",size=3) +
+  labs(x = "Year", 
+       y = "Average Percentage of Population Commuting by Taxi",
+       title = "Trend of Commuting by Taxi from 2017 to 2022") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.01)) +
+  theme_minimal()
+
+average_pct_motor <- allTracts %>%
+  group_by(year) %>%
+  summarise(avg_pct_motor = mean(pctworkbymotor))
+
+ggplot(average_pct_motor, aes(x = year, y = avg_pct_motor)) +
+  geom_line(color = "black",linewidth=1.5) +
+  geom_point(color = "red",size=3) +
+  labs(x = "Year", 
+       y = "Average Percentage of Population Commuting with Motorcycle",
+       title = "Trend of Commuting by Motorcycle from 2017 to 2022") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.01)) +
+  theme_minimal()
+
+average_pct_bike <- allTracts %>%
+  group_by(year) %>%
+  summarise(avg_pct_bike = mean(pctworkbybike))
+
+ggplot(average_pct_bike, aes(x = year, y = avg_pct_bike)) +
+  geom_line(color = "black",linewidth=1.5) +
+  geom_point(color = "red",size=3) +
+  labs(x = "Year", 
+       y = "Average Percentage of Population Commuting by Bike",
+       title = "Trend of Commuting by Bike from 2017 to 2022") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.01)) +
+  theme_minimal()
+
+average_pct_walk <- allTracts %>%
+  group_by(year) %>%
+  summarise(avg_pct_walk = mean(pctworkbywalk))
+
+ggplot(average_pct_walk, aes(x = year, y = avg_pct_walk)) +
+  geom_line(color = "black",linewidth=1.5) +
+  geom_point(color = "red",size=3) +
+  labs(x = "Year", 
+       y = "Average Percentage of Population Commuting by Walk",
+       title = "Trend of Commuting by Walk from 2017 to 2022") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  theme_minimal()
+
+```
+
+
+##### 6.1.3 Demographic Maps
+
+The majority of Mecklenburg County population resides in suburban census tract, a trend that is consistent with the number of employed individuals in the county who also live in the suburbs. However, when examining census data on the use of public transportation to commute to work, a significant proportion is concentrated in the city center and expanded to the south. This can be correlated with census data on the prevalence of working from home, which tends to be dispersed in suburban areas situated relatively farther away from the city center
+
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.height=18, fig.width=12}
+tp_vars2 <- c("TotalPop", "TotalWorker", "Workwithbus", "Workfromhome" )
+tp_titles2 <- c("Total Population ", "Total Population of Worker", "Total Population Commute with Bus", "Total Population Work from Home ")
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2017 (Census Tracts)"))
+
+# plot 2018
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2018 (Census Tracts)"))
+
+# plot 2019
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2019 (Census Tracts)"))
+
+#plot 2020
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2020 (Census Tracts)"))
+
+#plot 2021
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2021 (Census Tracts)"))
+
+#plot 2022
+mapList2 <- list()
+j2 <- 1
+
+for(i in tp_vars2){
+  map2 <- ggplot() +
+         geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles2[j2], caption = paste0("Figure ", as.character(j2))) +
+  mapTheme()
+  mapList2[[i]] <- map2
+  j2<-j2+1
+}
+
+do.call(grid.arrange,c(mapList2, ncol=2, top="Demography of Mecklenburg County in 2022 (Census Tracts)"))
+```
+
+> From the plotted maps, suburban census tracts in Charlotte have more residents as well as more number of employed workers. For the people commuting to work by bus are largely concentrated in the city center of Charlotte. Meanwhile, work from home trends indicate dominant concentrations in the suburban areas.
+
+
+##### 6.1.4 Spatial Reference of Car Ownership and Commute by Bus
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.height=18, fig.width=12}
+tp_vars <- c("pctworkwithbus", "pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+tp_titles <- c("Percent of Population Commute with Bus", "Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2017,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2017 (Census Tracts)"))
+
+# plot 2018
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2018,aes(fill = (!!sym(i))), crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2018 (Census Tracts)"))
+
+# plot 2019
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2019,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2019 (Census Tracts)"))
+
+#plot 2020
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2020,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2020 (Census Tracts)"))
+
+#plot 2021
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2021,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
+  
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2021 (Census Tracts)"))
+
+#plot 2022
+mapList <- list()
+j <- 1
+
+for(i in tp_vars){
+  map <- ggplot() +
+         geom_sf(data = dat2022,aes(fill = (!!sym(i))),crs = st_crs("EPSG:4326")) +
+         scale_fill_gradient(low = "#edf8fb", high = "#005357") + 
+         geom_sf(data=bus_routes, color = "#FFBD37", size = 0.5,alpha = 0.5)+
+         labs(title = tp_titles[j], caption = paste0("Figure ", as.character(j))) +
+    mapTheme()
+  mapList[[i]] <- map
+  j<-j+1
+}
+
+do.call(grid.arrange,c(mapList, ncol=2, top="Commute by Bus and Car Ownership of Mecklenburg County in 2022 (Census Tracts)"))
+```
+
+
+##### 6.1.5 Histogram of Car Ownership
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.height=18, fig.width=12}
+car_vars <- c("pctnocar", "pct1car", "pct2car", "pct3car", "pct4car", "pct5car")
+car_titles <- c("Percent of Household with No Car", "Percent of Household with 1 Car", "Percent of Household with 2 Cars", "Percent of Household with 3 Cars", "Percent of Household with 4 Cars", "Percent of Household with 5 or more Cars")
+# hist 2017
+histList <- list()
+j <- 1
+
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
+  histList[[i]] <- hist
+  j <- j + 1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2017"))
+
+# hist 2018
+histList <- list()
+j <- 1
+
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
+  histList[[i]] <- hist
+  j <- j + 1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2018"))
+
+# hist 2019
+histList <- list()
+j <- 1
+
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
+  histList[[i]] <- hist
+  j <- j + 1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2019"))
+
+# hist 2020
+histList <- list()
+j <- 1
+
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
+  histList[[i]] <- hist
+  j <- j + 1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2020"))
+
+# hist 2021
+histList <- list()
+j <- 1
+
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
+  histList[[i]] <- hist
+  j <- j + 1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2021"))
+
+# hist 2022
+histList <- list()
+j <- 1
+
+for (i in car_vars) {
+  hist <- ggplot(data = dat2017, aes(x = !!sym(i))) +
+    geom_histogram(fill = "#edf8fb", color = "black") +  # Set initial color to black (can be any color)
+    labs(title = car_titles[j], caption = paste0("Figure ", as.character(j))) +
+    theme_minimal() +
+    scale_fill_manual(values = palettebase7)  # Using scale_fill_manual to specify colors
+  histList[[i]] <- hist
+  j <- j + 1
+}
+
+do.call(grid.arrange,c(histList, ncol=2, top="Histogram of Car Ownership of Mecklenburg County in 2022"))
+```
+
+> From the plotted maps, suburban census tracts in Charlotte have more households with cars than household in city center. Most of those households have two or more cars
+
+
+##### 6.1.6 Car Ownership Trend
+
+```{r, warning=FALSE, message=FALSE}
+average_pct_cars <- allTracts %>%
+  group_by(year) %>%
+  summarise(avg_pct_0cars = mean(pctnocar),
+            avg_pct_1cars = mean(pct1car),
+            avg_pct_2cars = mean(pct2car),
+            avg_pct_3cars = mean(pct3car),
+            avg_pct_4cars = mean(pct4car),
+            avg_pct_5ormore_cars = mean(pct5car))
+
+average_pct_cars_long <- pivot_longer(average_pct_cars, 
+                                      cols = starts_with("avg_pct"), 
+                                      names_to = "Cars", 
+                                      values_to = "Percentage")
+
+plot_list <- list()
+for (i in unique(average_pct_cars_long$Cars)) {
+  num_cars <- gsub("avg_pct_", "", i)
+  num_cars <- gsub("cars", "car", num_cars)
+  subset_data <- subset(average_pct_cars_long, Cars == i)
+  plot <- ggplot(subset_data, aes(x = year, y = Percentage, group = 1)) +
+    geom_line(color = "black",linewidth=1.5) +
+    geom_point(color = "red",size=3) +
+    labs(x = "Year", 
+         y = "Average Percentage of Households",
+         title = paste("Trend of Car Ownership:", num_cars)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+    theme_minimal()
+  plot_list[[i]] <- plot
+}
+
+grid.arrange(grobs = plot_list, ncol = 2, top = "Trend of Car Ownership (2017-2022)")
+```
+
+### 7. Next Steps
+
+1.To identify most significant demographic and spatial variables for predicting underperformance
+2. To present findings to clients and solicit feedback
+3. To arrive at best modeling process to predict stops that are likely to underperform
+4. To propose removal of and addition of stops to certain routes and examine their equity and financial impact
+5. To create a web-based dashboard that allows CATS transportation planners to overlay socioeconomic, equity, and financial factors with underperformance to be able to allocate resources to stops effectively
+
+In doing so, our aim is to build a comprehensive and robust model to optimize bus line efficiency, aligning with CATS' goal of providing faster, more reliable, and convenient transit options for Charlotte residents.
+
+
+```{r, warning=FALSE, message=FALSE}
+# Perform spatial join based on containment (bus stops within census tracts)
+joined_data <- st_join(busstop_sf, allTracts_sf, join = st_within)
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+a# Spatial join based on containment (bus stops within census tracts)
+if (st_crs(busstop_sf) != st_crs(allTracts_sf)) {
+  busstop_sf <- st_transform(busstop_sf, crs = st_crs(allTracts_sf))
+}
+
+# Spatial join
+joined_data <- st_join(busstop_sf, allTracts_sf, join = st_within)
+
+# Separate dataset
+data_2017 <- filter(joined_data, Year == 2017 & year == 2017)
+data_2018 <- filter(joined_data, Year == 2018 & year == 2018)
+data_2019 <- filter(joined_data, Year == 2019 & year == 2019)
+data_2020 <- filter(joined_data, Year == 2020 & year == 2020)
+data_2021 <- filter(joined_data, Year == 2021 & year == 2021)
+data_2022 <- filter(joined_data, Year == 2022 & year == 2022)
+
+# Save csv
+#write.csv(data_2017, "data_2017.csv", row.names = FALSE)
+#write.csv(data_2018, "data_2018.csv", row.names = FALSE)
+#write.csv(data_2019, "data_2019.csv", row.names = FALSE)
+#write.csv(data_2020, "data_2020.csv", row.names = FALSE)
+#write.csv(data_2021, "data_2021.csv", row.names = FALSE)
+#write.csv(data_2022, "data_2022.csv", row.names = FALSE)
+```
+
+
+```{r clean_school}
+#joined_data$school.Buffer <- joined_data %>% 
+#    st_buffer(660) %>% 
+#    aggregate(mutate(school.sf, counter = 1),., sum) %>%
+#    pull(counter)
+
+#joined_data$policeoffice.Buffer <- joined_data %>% 
+#    st_buffer(660) %>% 
+#    aggregate(mutate(policeoffice.sf, counter = 1),., sum) %>%
+#    pull(counter)
+
+#data_2022$busstop.Buffer <- data_2022 %>% 
+#    st_buffer(660) %>% 
+#    aggregate(mutate(bus_stops.sf, counter = 1),., sum) %>%
+#    pull(counter)
+
+
+data_2022 <-
+  data_2022 %>% 
+    mutate(
+      school_nn1 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(school.sf), k = 1),
+      
+      school_nn2 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(school.sf), k = 2), 
+      
+      school_nn3 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(school.sf), k = 3), 
+      
+      school_nn4 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(school.sf), k = 4), 
+      
+      school_nn5 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(school.sf), k = 5)) 
+
+data_2022 <-
+  data_2022 %>% 
+    mutate(
+      policeoffice_nn1 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(policeoffice.sf), k = 1),
+      
+      policeoffice_nn2 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(policeoffice.sf), k = 2), 
+      
+      policeoffice_nn3 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(policeoffice.sf), k = 3), 
+      
+      policeoffice_nn4 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(policeoffice.sf), k = 4), 
+      
+      policeoffice_nn5 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(policeoffice.sf), k = 5)) 
+
+data_2022 <-
+  data_2022 %>% 
+    mutate(
+      groceries_nn1 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(groceries.sf), k = 1),
+      
+      groceries_nn2 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(groceries.sf), k = 2), 
+      
+      groceries_nn3 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(groceries.sf), k = 3), 
+      
+      groceries_nn4 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(groceries.sf), k = 4), 
+      
+      groceries_nn5 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(groceries.sf), k = 5)) 
+
+
+data_2022 <-
+  data_2022 %>% 
+    mutate(
+      parks_nn1 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(parks.sf), k = 1),
+      
+      parks_nn2 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(parks.sf), k = 2), 
+      
+      parks_nn3 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(parks.sf), k = 3), 
+      
+      parks_nn4 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(parks.sf), k = 4), 
+      
+      parks_nn5 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(parks.sf), k = 5)) 
+
+data_2022 <-
+  data_2022 %>% 
+    mutate(
+      shoppingcen_nn1 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(shoppingcen.sf), k = 1),
+      
+      shoppingcen_nn2 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(shoppingcen.sf), k = 2), 
+      
+      shoppingcen_nn3 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(shoppingcen.sf), k = 3), 
+      
+      shoppingcen_nn4 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(shoppingcen.sf), k = 4), 
+      
+      shoppingcen_nn5 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(shoppingcen.sf), k = 5)) 
+
+```
+
+```{r}
+# Rename OBJECTID_1 column to OBJECTID in blue_stops
+blue_stops <- blue_stops %>% rename(OBJECTID = OBJECTID_1)
+blue_stops <- select(blue_stops, c(OBJECTID, NAME))
+
+gold_stops <- select(gold_stops, c(OBJECTID, Stop_Name))
+gold_stops <- gold_stops %>% rename(NAME = Stop_Name)
+# Merge the datasets based on OBJECTID
+existing_transit_stops <- rbind(blue_stops, gold_stops)
+existing_transit_stops <- st_as_sf(existing_transit_stops, coords = c("geometry.x", "geometry.y"))
+
+
+# Plot the density of points
+ggplot() +
+  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = existing_transit_stops, color = "black", size = .5, alpha = 0.5) +
+  stat_density_2d(data = existing_transit_stops, 
+                  aes(x = st_coordinates(geometry)[, 1], 
+                      y = st_coordinates(geometry)[, 2],
+                      fill = ..level.., alpha = ..level..),
+                  size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "#737373", high = "#0077B6", name = "Density") +  # Adjust color gradient
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Existing Light Rail Stops") +
+  mapTheme()
+
+```
+
+```{r}
+data_2022 <-
+  data_2022 %>% 
+    mutate(
+      transit_stops_nn1 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(existing_transit_stops), k = 1),
+      
+      transit_stops_nn2 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(existing_transit_stops), k = 2), 
+      
+      transit_stops_nn3 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(existing_transit_stops), k = 3), 
+      
+      transit_stops_nn4 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(existing_transit_stops), k = 4), 
+      
+      transit_stops_nn5 = nn_function(st_coordinates(data_2022), 
+                              st_coordinates(existing_transit_stops), k = 5)) 
+```
+
+```{r}
+city_center<- st_sfc(st_point(c(1692115, 5236081)), crs = 3358)
+data_2022$dist_to_center <- st_distance(data_2022$geometry, city_center)
+```
+
+
+### Modeling
+
+#### OLS
+
+```{r}
+data_2022 <- data_2022 %>% 
+             mutate(Avg_ridership = Avg_Board + Avg_Alight)
+# split traning and testing
+set.seed(123) # Set seed for reproducibility
+train_index <- createDataPartition(data_2022$Avg_ridership, p = 0.7, list = FALSE)
+OLS_train_data <- data_2022[train_index, ]
+OLS_test_data <- data_2022[-train_index, ]
+
+#Fit regression
+OLS <- lm(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5 + transit_stops_nn1 + transit_stops_nn2 + transit_stops_nn3 + transit_stops_nn4 + transit_stops_nn5 + school_nn1 + school_nn2 + school_nn3 + school_nn4 + school_nn5 + dist_to_center
+          , data = OLS_train_data)
+
+# Evaluate model
+OLS_testing <- OLS_test_data %>%
+  mutate(
+    Predictions = predict(OLS, OLS_test_data),
+    Error = Predictions - OLS_test_data$Avg_ridership,
+    AbsError = abs(Predictions - OLS_test_data$Avg_ridership),
+    MAE = mean(abs(Error), na.rm = TRUE),
+    APE = abs(Predictions - OLS_test_data$Avg_ridership) / Predictions)
+summary(OLS)
+```
+
+```{r}
+plot(OLS)
+```
+
+```{r}
+# Extract actual and predicted values
+OLSactual <- OLS_test_data$Avg_ridership
+OLSpredicted <- predict(OLS, newdata = OLS_test_data)
+
+# Create a scatter plot of actual vs. predicted values
+plot(OLSactual, OLSpredicted, main = "Actual vs. Predicted", xlab = "Actual", ylab = "Predicted")
+abline(0, 1, col = "red")  # Add a line of perfect prediction (y = x)
+```
+
+
+```{r}
+OLS_testing_sf <- st_as_sf(OLS_testing)
+
+ggplot(OLS_testing_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = AbsError), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Absolute Error Value")
+
+```
+
+
+#### Random Forest
+
+```{r} 
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+train_index <- sample(1:nrow(data_2022), 0.7 * nrow(data_2022)) 
+train_data_RF <- data_2022[train_index, ]
+train_data_RF <- na.omit(train_data_RF)
+test_data_RF <- data_2022[-train_index, ]
+test_data_RF<-na.omit(test_data_RF)
+
+# Fit the Random Forest model
+RF_model <- randomForest(
+  formula = Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5 + Month + PopDensity_km2, 
+  data = train_data_RF)
+
+
+RF_testing <- test_data_RF %>%
+  mutate(Predictions_RF = predict(RF_model, newdata = test_data_RF),
+Error_RF = Predictions_RF - test_data_RF$Avg_ridership,
+AbsError_RF = abs(Predictions_RF - test_data_RF$Avg_ridership),
+MAE_RF= mean(abs(Error_RF)),
+APE_RF = (abs(Predictions_RF - test_data_RF$Avg_ridership)) / Predictions_RF)
+
+RF_model
+```
+
+```{r}
+# Extract actual and predicted values
+actual <- test_data_RF$Avg_ridership
+predicted <- predict(RF_model, newdata = test_data_RF)
+
+# Create a scatter plot of actual vs. predicted values
+plot(actual, predicted, main = "Actual vs. Predicted", xlab = "Actual", ylab = "Predicted")
+abline(0, 1, col = "red")  # Add a line of perfect prediction (y = x)
+```
+
+```{r}
+RF_testing_sf <- st_as_sf(RF_testing)
+
+ggplot(RF_testing_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = AbsError_RF), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Absolute Error Value")
+
+```
+
+
+##### K-fold validation
+
+> Random Forest 1
+
+```{r}
+# Load required packages
+install.packages("caret")
+library(caret)
+
+# Define the training control parameters for cross-validation
+ctrl <- trainControl(method = "cv", 
+                     number = 10,     # Number of folds
+                     verboseIter = TRUE)  
+
+# Train the random forest model using k-fold cross-validation
+RF_model <- train(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5, 
+                  data = train_data_RF,
+                  method = "rf",  
+                  trControl = ctrl)  
+
+# Assess the performance of the model
+summary(RF_model)
+```
+
+```{r}
+RF_model$resample[1:5,]
+
+mean(RF_model$resample[,3])
+```
+
+
+#### Random Forest#2
+
+```{r}
+
+routes_test <- st_read("Bus Transit Data/Bus_Stops_With_Frequency_HLT.shp")
+
+new_routes <- routes_test[, c("StopID", "routes")]
+
+
+# Assuming your dataset is named "new_data" and column "a" contains values like "00040", "00125", etc.
+# Convert column "a" to numeric and then format it without leading zeros
+new_routes_2 <- new_routes %>%
+  mutate(StopID = as.numeric(StopID),
+         StopID = sprintf("%d", StopID))
+
+
+new_routes_2 <- new_routes_2 %>%
+  rename('Stop ID' = StopID)
+
+
+# Convert the sf object "sf_data" to a regular data frame
+routes_df <- st_drop_geometry(new_routes_2)
+
+# Remove spaces in "Stop ID" values
+data_2022$`Stop ID` <- gsub("\\s+", "", data_2022$`Stop ID`)
+
+# Perform a left join based on the common column "Stop ID"
+merged_dataset_bus <- left_join(routes_df, data_2022,   by = "Stop ID")
+
+merged_dataset_bus <- merged_dataset_bus %>%
+  mutate("total_routes_in_stops" = str_count(routes, ",") + 1)
+
+
+# Separate the routes into individual rows
+separated_data <- merged_dataset_bus %>%
+  separate_rows(routes, sep = ",\\s*")
+
+# Count the number of routes in each row
+# merged_dataset_bus$total_of_routes <- sapply(strsplit(merged_dataset_bus$routes, ",\\s*"), length)
+
+
+# Calculate the count of unique Stop ID values for each route
+# count_stops_data <- separated_data %>% group_by(routes, `Stop ID`) %>% summarise(total_stops_in_routes = n_distinct(`Stop ID`))
+
+count_stops_routes <- separated_data %>%
+  group_by(routes) %>%
+  summarise(total_stops_in_routes = n_distinct(`Stop ID`))
+
+# Merge the count_stops_data back to the original_data based on routes and counts
+merge_count_data <- left_join(separated_data, count_stops_routes, by = "routes")
+
+merge_count_data <- merge_count_data %>%
+  mutate("total_routes_in_stops" = str_count(routes, ",") + 1)
+
+
+summarized_data2 <- merge_count_data %>%
+  group_by(`Stop ID`, Month) %>%
+  summarize(total_stops_in_served_routes = sum(total_stops_in_routes, na.rm = TRUE))
+
+
+# Merge the summarized data back with the original 'bus_2022' dataset
+RF2_table <- merge(merged_dataset_bus, summarized_data2, by = c('Stop ID', 'Month'), all.x = TRUE)
+
+
+RF2_table_sf <- st_as_sf(RF2_table)
+
+
+```
+
+
+```{r} 
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+train_index2 <- sample(1:nrow(RF2_table_sf), 0.7 * nrow(RF2_table_sf)) 
+train_data_RF2 <- RF2_table_sf[train_index2, ]
+train_data_RF2 <- na.omit(train_data_RF2)
+test_data_RF2 <- RF2_table_sf[-train_index2, ]
+test_data_RF2<- na.omit(test_data_RF2)
+
+
+# Fit the Random Forest model
+RF_model2 <- randomForest(
+  formula = Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5+ total_routes_in_stops + total_stops_in_served_routes + Month + PopDensity_km2 + transit_stops_nn1 + transit_stops_nn2 + transit_stops_nn3 + transit_stops_nn4 + transit_stops_nn5 + school_nn1 + school_nn2 + school_nn3 + school_nn4 + school_nn5 + dist_to_center, 
+  data = train_data_RF2)
+
+
+RF_testing2 <- test_data_RF2 %>%
+  mutate(Predictions_RF2 = predict(RF_model2, newdata = test_data_RF2),
+Error_RF2 = Predictions_RF2 - test_data_RF2$Avg_ridership,
+AbsError_RF2 = abs(Predictions_RF2 - test_data_RF2$Avg_ridership),
+MAE_RF2= mean(abs(Error_RF2)),
+APE_RF2 = (abs(Predictions_RF2 - test_data_RF2$Avg_ridership)) / Predictions_RF2)
+
+RF_model2
+```
+
+
+```{r}
+# Extract actual and predicted values
+actual2 <- test_data_RF2$Avg_ridership
+predicted2 <- predict(RF_model2, newdata = test_data_RF2)
+
+# Create a scatter plot of actual vs. predicted values
+plot(actual2, predicted2, main = "Actual vs. Predicted", xlab = "Actual", ylab = "Predicted")
+abline(0, 1, col = "red")  # Add a line of perfect prediction (y = x)
+```
+
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+RF_testing_sf2 <- st_as_sf(RF_testing2)
+
+ggplot(RF_testing_sf2) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = AbsError_RF2), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Absolute Error Value")
+
+```
+
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+# Calculating Monthly Prediction
+RF_testing_sf_monthly <- RF_testing_sf2 %>%
+  mutate(Monthly_prediction = Predictions_RF2 * Number_of_Days)
+
+file_path <- "predictions.geojson"
+st_write(RF_testing_sf_monthly, file_path, driver = "GeoJSON")
+
+```
+
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+underperforming_stops_predicted2 <- RF_testing_sf_monthly[RF_testing_sf_monthly$Monthly_prediction <= 10, ]
+underperformance_counts_predicted2 <- table(underperforming_stops_predicted2$"Stop ID")
+
+# Top 50 Stops for 2023
+top_50_stops_predicted2 <- names(sort(underperformance_counts_predicted2, decreasing = TRUE)[1:50])
+underperforming_top_50_predicted2 <- underperforming_stops_predicted2[underperforming_stops_predicted2$"Stop ID" %in% top_50_stops_predicted2, ]
+
+# Order
+underperforming_top_50_predicted2$"Stop ID" <- factor(underperforming_top_50_predicted2$"Stop ID", levels = rev(top_50_stops_predicted2))
+
+#underperforming_top_50_sf2 <- st_as_sf(underperforming_top_50_predicted2, coords = c("Longitude", "Latitude"), crs = 4326)
+
+#underperforming_top_50_sf2 <- st_as_sf(underperforming_top_50_predicted2, wkt = "geometry", crs = 4326)
+
+#underperforming_top_50_predicted2$geometry <- st_transform(underperforming_top_50_predicted2$geometry, crs = 3358)
+
+
+
+
+underperforming_top_50_predicted2$geometry <- st_transform(underperforming_top_50_predicted2$geometry, crs = 3358)  # NAD83 North Carolina
+
+map_plot_top_50_predicted2 <- ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_50_predicted2, aes(geometry = geometry, colour = q5(Monthly_prediction)), size = 2) +
+  scale_color_manual(values = rev(palettebase5),
+                     labels = c("1", "2", "3", "4", "5"),
+                     name = "Quintile\nBreaks") +
+  labs(title = "50 Bus Stops with Lowest Predicted Avg Ridership",
+       fill = "Predictions_RF2") +
+  mapTheme()+
+  theme(legend.position = "bottom")
+
+print(map_plot_top_50_predicted2)
+
+file_path <- "Top50underperforming.geojson"
+st_write(underperforming_top_50_predicted2, file_path, driver = "GeoJSON")
+
+```
+
+
+```{r, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+underperforming_stops_predicted2_m <- underperforming_stops_predicted2[underperforming_stops_predicted2$Month == 'January', ]
+
+ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_stops_predicted2_m, aes(color = Monthly_prediction), size = 1) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Predicted Avg Ridership under 10 in January", color = "Predicted Ridership") +
+  theme(legend.position = "bottom")
+
+file_path <- "underperforming_Jan.geojson"
+st_write(underperforming_stops_predicted2_m, file_path, driver = "GeoJSON")
+```
+
+
+
+```{r}
+# Random Forrest 2 multicolinearity 
+
+library(car)
+
+# Get variable importance scores from the Random Forest model
+importance_scores <- importance(RF_model2)
+
+# Print the variable importance scores
+print(importance_scores)
+
+# Plot the variable importance scores
+varImpPlot(RF_model2)
+```
+
+
+```{r}
+# Load required packages
+install.packages("caret")
+library(caret)
+
+# Define the training control parameters for cross-validation
+ctrl2 <- trainControl(method = "cv", 
+                     number = 5,     # Number of folds
+                     verboseIter = TRUE)  
+
+# Train the random forest model using k-fold cross-validation
+RF_model2 <- train(Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5+ total_routes_in_stops + total_stops_in_served_routes + Month + PopDensity_km2 + transit_stops_nn1 + transit_stops_nn2 + transit_stops_nn3 + transit_stops_nn4 + transit_stops_nn5 + school_nn1 + school_nn2 + school_nn3 + school_nn4 + school_nn5 + dist_to_center, 
+                  data = train_data_RF2,
+                  method = "rf",  
+                  trControl = ctrl2)  
+
+# Assess the performance of the model
+summary(RF_model2)
+```
+
+```{r}
+RF_model2$resample[1:5,]
+
+mean(RF_model2$resample[,3])
+```
+
+
+
+#### Use-Case Scenario
+
+
+##### Scenario 1: Increase in Population Density
+
+###### Increase in Population Density 15% (2022 & 2017)
+The last measured population density for Charlotte, NC was 2,827 in 2018. Charlotte, NC experienced an average growth rate of 2.87% from our first statistic recorded in 2009. If past trends continue, we forecast the population density growth rate would be 15% from 2022 to 2027.
+
+> Random Forest #1
+
+```{r, scenario 1 2022}
+
+# Simulate 10% increase in PopDensity
+data_2022_scenario1 <- data_2022 %>% 
+  mutate(PopDensity_km2 = PopDensity_km2 * 1.15)
+
+# Make Predictions with the New Scenario Data
+predictions_2022_scenario1 <- predict(RF_model, newdata = data_2022_scenario1)
+
+# Add Predictions to the Data
+data_2022_scenario1$Predicted_Avg_ridership <- predictions_2022_scenario1
+
+# Format Predicted Avg Ridership as Decimal Numbers
+data_2022_scenario1$Predicted_Avg_ridership <- sprintf("%.2f", predictions_2022_scenario1)
+
+# Convert Data to an sf Object
+data_2022_scenario1_sf <- st_as_sf(data_2022_scenario1, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+data_2022_scenario1_sf$Predicted_Avg_ridership <- as.numeric(data_2022_scenario1_sf$Predicted_Avg_ridership)
+
+# Plot the Map with Correct Fill Scale
+ggplot(data_2022_scenario1_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = Predicted_Avg_ridership), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops 2022", color = "Predicted Avg Ridership with \n15% Increase in Population Density")
+
+```
+
+
+> Random Forest #2
+
+```{r, scenario 1 2022, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+
+# Simulate 15% increase in PopDensity
+RF2_table_2022_scenario1 <- RF2_table_sf %>% 
+  mutate(PopDensity_km2 = PopDensity_km2 * 1.15)
+
+# Make Predictions with the New Scenario Data
+predictions2_2022_scenario1 <- predict(RF_model2, newdata = RF2_table_2022_scenario1)
+
+# Add Predictions to the Data
+RF2_table_2022_scenario1$Predicted_Avg_ridership <- predictions2_2022_scenario1
+
+# Add Monthly Prediction Column
+RF2_table_2022_scenario1 <- RF2_table_2022_scenario1 %>%
+  mutate(Monthly_prediction = Predicted_Avg_ridership * Number_of_Days)
+
+# Format Predicted Avg Ridership as Decimal Numbers
+#RF2_table_2022_scenario1$Monthly_prediction <- sprintf("%.2f", predictions2_2022_scenario1)
+
+# Convert Data to an sf Object
+RF2_table_2022_scenario1_sf <- st_as_sf(RF2_table_2022_scenario1, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+RF2_table_2022_scenario1_sf$Monthly_prediction <- as.numeric(RF2_table_2022_scenario1_sf$Monthly_prediction)
+
+result <- RF2_table_2022_scenario1_sf[RF2_table_2022_scenario1_sf$Monthly_prediction <= 10, ]
+result <- result[result$Month == 'January', ]
+
+# Plot the Map with Correct Fill Scale
+ggplot(result) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+#  geom_sf(data = dat2022,aes(fill = (PopDensity_km2)), alpha = 0.5) +
+#  scale_fill_gradient(low = "white", high = "grey20") + 
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario I", color = "Predicted Avg Ridership with \n15% Increase in Population Density")+
+  theme(legend.position = "bottom")
+
+
+#file_path <- "scenario1underperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
+
+
+
+```
+
+
+###### Increase in Population Density 30%
+
+> Random Forest #1
+
+```{r, scenario 1a 2022}
+
+# Simulate 30% increase in PopDensity
+data_2022_scenario1a <- data_2022 %>% 
+  mutate(PopDensity_km2 = PopDensity_km2 * 1.3)
+
+# Make Predictions with the New Scenario Data
+predictions_2022_scenario1a <- predict(RF_model, newdata = data_2022_scenario1a)
+
+# Add Predictions to the Data
+data_2022_scenario1a$Predicted_Avg_ridership <- predictions_2022_scenario1a
+
+# Format Predicted Avg Ridership as Decimal Numbers
+data_2022_scenario1a$Predicted_Avg_ridership <- sprintf("%.2f", predictions_2022_scenario1a)
+
+# Convert Data to an sf Object
+data_2022_scenario1a_sf <- st_as_sf(data_2022_scenario1a, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+data_2022_scenario1a_sf$Predicted_Avg_ridership <- as.numeric(data_2022_scenario1a_sf$Predicted_Avg_ridership)
+
+# Plot the Map with Correct Fill Scale
+ggplot(data_2022_scenario1a_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = Predicted_Avg_ridership), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops 2022", color = "Predicted Avg Ridership with \n30% Increase in Population Density")
+
+
+```
+
+
+> Random Forest #2
+
+
+```{r, scenario 1a 2022}
+
+# Simulate 30% increase in PopDensity
+RF2_table_2022_scenario1a <- RF2_table_sf %>% 
+  mutate(PopDensity_km2 = PopDensity_km2 * 1.3)
+
+# Make Predictions with the New Scenario Data
+predictions2_2022_scenario1a <- predict(RF_model2, newdata = RF2_table_2022_scenario1a)
+
+# Add Predictions to the Data
+RF2_table_2022_scenario1a$Predicted_Avg_ridership <- predictions2_2022_scenario1a
+
+# Add Monthly Prediction Column
+RF2_table_2022_scenario1a <- RF2_table_2022_scenario1a %>%
+  mutate(Monthly_prediction = Predicted_Avg_ridership * Number_of_Days)
+
+# Format Predicted Avg Ridership as Decimal Numbers
+# RF2_table_2022_scenario1a$Predicted_Avg_ridership <- sprintf("%.2f", predictions2_2022_scenario1a)
+
+# Convert Data to an sf Object
+RF2_table_2022_scenario1a_sf <- st_as_sf(RF2_table_2022_scenario1a, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+RF2_table_2022_scenario1a_sf$Monthly_prediction <- as.numeric(RF2_table_2022_scenario1a_sf$Monthly_prediction)
+
+
+result <- RF2_table_2022_scenario1a_sf[RF2_table_2022_scenario1a_sf$Monthly_prediction <= 10, ]
+result <- result[result$Month == 'January', ]
+
+# Plot the Map with Correct Fill Scale
+ggplot(result) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario I", color = "Predicted Avg Ridership with \n30% Increase in Population Density")+
+  theme(legend.position = "bottom")
+
+#file_path <- "scenario1aunderperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
+
+
+```
+
+
+##### Scenario 2: Increase in Median Income
+
+###### Increase in Income 25%
+Between 2020 and 2021 Charlotte's median household income grew from $65,359 to $68,367, a 4.6% increase. It will be an increase of 25% from 2022 to 2027.
+> Random Forest #1
+
+```{r, scenario 2 2022}
+
+# Simulate 10% increase in Income
+data_2022_scenario2 <- data_2022 %>% 
+  mutate(MedHHInc = MedHHInc * 1.25)
+
+# Make Predictions with the New Scenario Data
+predictions_2022_scenario2 <- predict(RF_model, newdata = data_2022_scenario2)
+
+# Add Predictions to the Data
+data_2022_scenario2$Predicted_Avg_ridership <- predictions_2022_scenario2
+
+# Format Predicted Avg Ridership as Decimal Numbers
+data_2022_scenario2$Predicted_Avg_ridership <- sprintf("%.2f", predictions_2022_scenario2)
+
+# Convert Data to an sf Object
+data_2022_scenario2_sf <- st_as_sf(data_2022_scenario2, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+data_2022_scenario2_sf$Predicted_Avg_ridership <- as.numeric(data_2022_scenario2_sf$Predicted_Avg_ridership)
+
+# Plot the Map with Correct Fill Scale
+ggplot(data_2022_scenario2_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = Predicted_Avg_ridership), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Predicted Avg Ridership with \n10% Increase in Median Income")
+
+```
+
+
+> Random Forest #2
+
+```{r, scenario 2 2022}
+
+RF2_table_2022_scenario2 <- RF2_table_sf %>% 
+  mutate(MedHHInc = MedHHInc * 1.25)
+
+# Make Predictions with the New Scenario Data
+predictions2_2022_scenario2 <- predict(RF_model2, newdata = RF2_table_2022_scenario2)
+
+# Add Predictions to the Data
+RF2_table_2022_scenario2$Predicted_Avg_ridership <- predictions2_2022_scenario2
+
+# Add Monthly Prediction Column
+RF2_table_2022_scenario2 <- RF2_table_2022_scenario2 %>%
+  mutate(Monthly_prediction = Predicted_Avg_ridership * Number_of_Days)
+
+# Format Predicted Avg Ridership as Decimal Numbers
+# RF2_table_2022_scenario2$Predicted_Avg_ridership <- sprintf("%.2f", predictions2_2022_scenario2)
+
+# Convert Data to an sf Object
+RF2_table_2022_scenario2_sf <- st_as_sf(RF2_table_2022_scenario2, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+RF2_table_2022_scenario2_sf$Monthly_prediction <- as.numeric(RF2_table_2022_scenario2_sf$Monthly_prediction)
+
+
+result <- RF2_table_2022_scenario2_sf[RF2_table_2022_scenario2_sf$Monthly_prediction <= 10, ]
+result <- result[result$Month == 'January', ]
+
+# Plot the Map with Correct Fill Scale
+ggplot(result) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario II", color = "Predicted Avg Ridership with \n25% Increase in Median Income")+
+  theme(legend.position = "bottom")
+
+#file_path <- "scenario2underperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
+
+```
+
+
+
+###### Increase in Median Income 50%
+
+> Random Forest #1
+
+```{r}
+
+# Simulate 10% increase in Income
+data_2022_scenario2a <- data_2022 %>% 
+  mutate(MedHHInc = MedHHInc * 1.5)
+
+# Make Predictions with the New Scenario Data
+predictions_2022_scenario2a <- predict(RF_model, newdata = data_2022_scenario2a)
+
+# Add Predictions to the Data
+data_2022_scenario2a$Predicted_Avg_ridership <- predictions_2022_scenario2a
+
+# Format Predicted Avg Ridership as Decimal Numbers
+data_2022_scenario2a$Predicted_Avg_ridership <- sprintf("%.2f", predictions_2022_scenario2a)
+
+# Convert Data to an sf Object
+data_2022_scenario2a_sf <- st_as_sf(data_2022_scenario2a, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+data_2022_scenario2a_sf$Predicted_Avg_ridership <- as.numeric(data_2022_scenario2a_sf$Predicted_Avg_ridership)
+
+# Plot the Map with Correct Fill Scale
+ggplot(data_2022_scenario2a_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = Predicted_Avg_ridership), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Predicted Avg Ridership with \n50% Increase in MedHHInc")
+
+```
+
+
+> Random Forest #2
+
+```{r, scenario 2a 2022}
+
+# Simulate 10% increase in PopDensity
+RF2_table_2022_scenario2a <- RF2_table_sf %>% 
+  mutate(MedHHInc = MedHHInc * 1.5)
+
+# Make Predictions with the New Scenario Data
+predictions2_2022_scenario2a <- predict(RF_model2, newdata = RF2_table_2022_scenario2a)
+
+# Add Predictions to the Data
+RF2_table_2022_scenario2a$Predicted_Avg_ridership <- predictions2_2022_scenario2a
+
+# Add Monthly Prediction Column
+RF2_table_2022_scenario2a <- RF2_table_2022_scenario2a %>%
+  mutate(Monthly_prediction = Predicted_Avg_ridership * Number_of_Days)
+
+# Format Predicted Avg Ridership as Decimal Numbers
+# RF2_table_2022_scenario2a$Predicted_Avg_ridership <- sprintf("%.2f", predictions2_2022_scenario2a)
+
+# Convert Data to an sf Object
+RF2_table_2022_scenario2a_sf <- st_as_sf(RF2_table_2022_scenario2a, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+RF2_table_2022_scenario2a_sf$Monthly_prediction <- as.numeric(RF2_table_2022_scenario2a_sf$Monthly_prediction)
+
+
+result <- RF2_table_2022_scenario2a_sf[RF2_table_2022_scenario2a_sf$Monthly_prediction <= 10, ]
+result <- result[result$Month == 'January', ]
+
+# Plot the Map with Correct Fill Scale
+ggplot(result) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario II", color = "Predicted Avg Ridership with \n50% Increase in Median Income")+
+  theme(legend.position = "bottom")
+
+
+#file_path <- "scenario2aunderperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
+
+
+
+```
+
+
+
+##### Scenario 3: Add 2 Proposed Light Rail Stops as Feature
+
+
+```{r, fig.height=8, fig.width=16}
+
+# Rename OBJECTID_1 column to OBJECTID in red_stops
+red_stops <- red_stops %>% rename(OBJECTID = OBJECTID_1)
+red_stops <- red_stops %>% rename(NAME = Name)
+red_stops <- select(red_stops, -Status)
+
+
+# Add a unique identifier to silver_stops
+silver_stops <- select(silver_stops, -c(Phase, parkRide, GeoID))
+silver_stops <- silver_stops %>% rename(NAME = Name)
+
+# Merge the datasets based on OBJECTID
+proposed_line_merged_data <- rbind(existing_transit_stops, red_stops)
+proposed_line_merged_data <- rbind(proposed_line_merged_data, silver_stops)
+
+# Extract X and Y
+#proposed_line_merged_data <- st_coordinates(proposed_line_merged_data)
+#proposed_line_merged_data <- as.data.frame(proposed_line_merged_data)
+#names(proposed_line_merged_data) <- c("x", "y")
+
+# Assuming your dataset is named "stops_data"
+proposed_line_merged_data_sf <- st_as_sf(proposed_line_merged_data, coords = c("geometry.x", "geometry.y"))
+
+
+# Plot the density of points
+
+ggplot() +
+  geom_sf(data = dat2020, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = proposed_line_merged_data, color = "black", size = .5, alpha = 0.5) +
+  stat_density_2d(data = proposed_line_merged_data_sf, 
+                  aes(x = st_coordinates(geometry)[, 1], 
+                      y = st_coordinates(geometry)[, 2],
+                      fill = ..level.., alpha = ..level..),
+                  size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_gradient(low = "#737373", high = "#0077B6", name = "Density") +  # Adjust color gradient
+  scale_alpha(range = c(0.00, 0.1), guide = "none") +
+  labs(title = "Density of Proposed Lines") +
+  mapTheme()
+  
+
+```
+
+
+```{r}
+
+RF2_table_sf <- na.omit(RF2_table_sf)
+
+data_2022_s1 <-
+  RF2_table_sf %>% 
+    mutate(
+      proposed_line_nn1 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 1),
+      
+      proposed_line_nn2 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 2), 
+      
+      proposed_line_nn3 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 3), 
+      
+      proposed_line_nn4 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 4), 
+      
+      proposed_line_nn5 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 5)) 
+
+```
+
+
+```{r}
+data_2022_s1 <- subset(data_2022_s1, select = -c(transit_stops_nn1, transit_stops_nn2, transit_stops_nn3, transit_stops_nn4, transit_stops_nn5))
+
+# Rename columns using base R
+names(data_2022_s1)[names(data_2022_s1) == "proposed_line_nn1"] <- "transit_stops_nn1"
+names(data_2022_s1)[names(data_2022_s1) == "proposed_line_nn2"] <- "transit_stops_nn2"
+names(data_2022_s1)[names(data_2022_s1) == "proposed_line_nn3"] <- "transit_stops_nn3"
+names(data_2022_s1)[names(data_2022_s1) == "proposed_line_nn4"] <- "transit_stops_nn4"
+names(data_2022_s1)[names(data_2022_s1) == "proposed_line_nn5"] <- "transit_stops_nn5"
+
+```
+
+
+
+> Random Forest Model #1
+
+```{r} 
+library(randomForest)
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+train_index_s1 <- sample(1:nrow(data_2022_s1), 0.7 * nrow(data_2022_s1)) 
+train_data_RF_s1 <- data_2022_s1[train_index_s1, ]
+train_data_RF_s1 <- na.omit(train_data_RF_s1)
+test_data_RF_s1 <- data_2022_s1[-train_index_s1, ]
+test_data_RF_s1 <- na.omit(test_data_RF_s1)
+
+# Fit the Random Forest model
+RF_model_s1 <- randomForest(
+  formula = Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5 + Month + PopDensity_km2 +  proposed_line_nn1 + proposed_line_nn2 + proposed_line_nn3 + proposed_line_nn4 + proposed_line_nn5, 
+  data = train_data_RF_s1)
+
+
+RF_testing_s1 <- test_data_RF_s1 %>%
+  mutate(Predictions_RF_s1 = predict(RF_model_s1, newdata = test_data_RF_s1),
+Error_RF_s1 = Predictions_RF_s1 - test_data_RF_s1$Avg_ridership,
+AbsError_RF_s1 = abs(Predictions_RF_s1 - test_data_RF_s1$Avg_ridership),
+MAE_RF_s1 = mean(abs(Error_RF_s1)),
+APE_RF_s1 = (abs(Predictions_RF_s1 - test_data_RF_s1$Avg_ridership)) / Predictions_RF_s1)
+
+RF_model_s1
+```
+
+
+
+```{r}
+# Extract actual and predicted values
+actual_s1 <- test_data_RF_s1$Avg_ridership
+predicted_s1 <- predict(RF_model_s1, newdata = test_data_RF_s1)
+
+# Create a scatter plot of actual vs. predicted values
+plot(actual_s1, predicted_s1, main = "Actual vs. Predicted", xlab = "Actual", ylab = "Predicted")
+abline(0, 1, col = "red")  # Add a line of perfect prediction (y = x)
+```
+
+
+```{r}
+RF_testing_s1_sf <- st_as_sf(RF_testing_s1)
+
+ggplot(RF_testing_s1_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = AbsError_RF_s1), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Absolute Error Value")
+
+```
+
+
+```{r}
+underperforming_stops_predicted_s1 <- RF_testing_s1[RF_testing_s1$Predictions_RF_s1 <= 10, ]
+underperformance_counts_predicted_s1 <- table(underperforming_stops_predicted_s1$"Stop ID")
+
+# Top 50 Stops for 2023
+top_50_stops_predicted_s1 <- names(sort(underperformance_counts_predicted_s1, decreasing = TRUE)[1:50])
+underperforming_top_50_predicted_s1 <- underperforming_stops_predicted_s1[underperforming_stops_predicted_s1$"Stop ID" %in% top_50_stops_predicted_s1, ]
+
+# Order
+underperforming_top_50_predicted_s1$"Stop ID" <- factor(underperforming_top_50_predicted_s1$"Stop ID", levels = rev(top_50_stops_predicted_s1))
+
+#underperforming_top_50_sf2 <- st_as_sf(underperforming_top_50_predicted2, coords = c("Longitude", "Latitude"), crs = 4326)
+
+#underperforming_top_50_sf2 <- st_as_sf(underperforming_top_50_predicted2, wkt = "geometry", crs = 4326)
+
+#underperforming_top_50_predicted2$geometry <- st_transform(underperforming_top_50_predicted2$geometry, crs = 3358)
+
+
+
+
+underperforming_top_50_predicted_s1$geometry <- st_transform(underperforming_top_50_predicted_s1$geometry, crs = 3358)  # NAD83 North Carolina
+
+map_plot_top_50_predicted_s1 <- ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_50_predicted_s1, aes(geometry = geometry, colour = q5(Predictions_RF_s1)), size = 2) +
+  scale_color_manual(values = rev(palettebase5),
+                     labels = c("1", "2", "3", "4", "5"),
+                     name = "Quintile\nBreaks") +
+  labs(title = "Top 50 Bus Stops with Lowest Predicted Avg Ridership",
+       fill = "Predictions_RF_s1") +
+  mapTheme()
+
+print(map_plot_top_50_predicted_s1)
+
+```
+
+
+> Random Forest Model #2
+
+```{r, scenario 2a 2022}
+
+
+# Make Predictions with the New Scenario Data
+predictions2_2022_scenario3 <- predict(RF_model2, newdata = data_2022_s1)
+
+# Add Predictions to the Data
+data_2022_s1$Predicted_Avg_ridership <- predictions2_2022_scenario3
+
+# Add Monthly Prediction Column
+data_2022_s1 <- data_2022_s1 %>%
+  mutate(Monthly_prediction = Predicted_Avg_ridership * Number_of_Days)
+
+# Format Predicted Avg Ridership as Decimal Numbers
+# RF2_table_2022_scenario2a$Predicted_Avg_ridership <- sprintf("%.2f", predictions2_2022_scenario3)
+
+# Convert Data to an sf Object
+RF2_table_2022_scenario3_sf <- st_as_sf(data_2022_s1, geom = "geometry")
+
+
+# Convert Predicted Avg Ridership to Numeric
+RF2_table_2022_scenario3_sf$Monthly_prediction <- as.numeric(RF2_table_2022_scenario3_sf$Monthly_prediction)
+
+
+result <- RF2_table_2022_scenario3_sf[RF2_table_2022_scenario3_sf$Monthly_prediction <= 10, ]
+result <- result[result$Month == 'January', ]
+
+# Plot the Map with Correct Fill Scale
+ggplot(result) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = silver_routes, color = "purple", size = 7, alpha = 0.5) +
+  geom_sf(data = red_routes,color = "#FF6347", size = 7, alpha = 0.5) +
+  geom_sf(data = blue_routes, color = "#4682B4", size = 7, alpha = 0.5) +
+  geom_sf(data = gold_routes,color = "#FFD700", size = 7, alpha = 0.5) +
+  geom_sf(aes(color = Monthly_prediction), size = 1) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario III", color = "Predicted Avg Ridership \nwith Proposed Transit Lines Added")+
+  theme(legend.position = "bottom")
+
+
+#file_path <- "scenario3underperforming.geojson"
+#st_write(result, file_path, driver = "GeoJSON")
+
+
+```
+
+
+
+```{r}
+RF2_table_sf <- na.omit(RF2_table_sf)
+
+RF2_table_s1 <-
+  RF2_table_sf %>% 
+    mutate(
+      proposed_line_nn1 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 1),
+      
+      proposed_line_nn2 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 2), 
+      
+      proposed_line_nn3 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 3), 
+      
+      proposed_line_nn4 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 4), 
+      
+      proposed_line_nn5 = nn_function(st_coordinates(RF2_table_sf), 
+                              st_coordinates(proposed_line_merged_data_sf), k = 5))
+```
+
+
+```{r} 
+library(randomForest)
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+train_index2_s1 <- sample(1:nrow(RF2_table_s1), 0.7 * nrow(RF2_table_s1)) 
+train_data_RF2_s1 <- RF2_table_s1[train_index2_s1, ]
+train_data_RF2_s1 <- na.omit(train_data_RF2_s1)
+test_data_RF2_s1 <- RF2_table_s1[-train_index2_s1, ]
+test_data_RF2_s1<- na.omit(test_data_RF2_s1)
+
+
+# Fit the Random Forest model
+RF_model2_s1 <- randomForest(
+  formula = Avg_ridership ~ TotalPop + MedHHInc + MedRent + Commutetowork + pctWhite + pctAfricanamerican + pctAsian + pctOther + pctMale + pctFemale + pctBachelors + pctWorker + pctPoverty + pctworkwithbus + pctworkfromhome + pctworkbycar + pctworkbytaxi + pctworkbymotor + pctworkbybike + pctworkbywalk + pctnocar + pct1car + pct2car + pct3car + pct4car + pct5car + policeoffice_nn1 + policeoffice_nn2 + policeoffice_nn3 + policeoffice_nn4 + policeoffice_nn5 + groceries_nn1 + groceries_nn2 + groceries_nn3 + groceries_nn4 + groceries_nn5 + parks_nn1 + parks_nn2 + parks_nn3 + parks_nn4 + parks_nn5 + shoppingcen_nn1 + shoppingcen_nn2 + shoppingcen_nn3 + shoppingcen_nn4 + shoppingcen_nn5+ total_routes_in_stops + total_stops_in_served_routes + Month + PopDensity_km2 + proposed_line_nn1 + proposed_line_nn2 + proposed_line_nn3 + proposed_line_nn4 + proposed_line_nn5+ school_nn1 + school_nn2 + school_nn3 + school_nn4 + school_nn5 + dist_to_center, 
+  data = train_data_RF2_s1)
+
+
+RF_testing2_s1 <- test_data_RF2_s1 %>%
+  mutate(Predictions_RF2_s1 = predict(RF_model2_s1, newdata = test_data_RF2_s1),
+Error_RF2_s1 = Predictions_RF2_s1 - test_data_RF2_s1$Avg_ridership,
+AbsError_RF2_s1 = abs(Predictions_RF2_s1 - test_data_RF2_s1$Avg_ridership),
+MAE_RF2_s1 = mean(abs(Error_RF2_s1)),
+APE_RF2_s1 = (abs(Predictions_RF2_s1 - test_data_RF2_s1$Avg_ridership)) / Predictions_RF2_s1)
+
+RF_model2_s1
+```
+
+
+```{r}
+# Extract actual and predicted values
+actual_RF2_s1 <- test_data_RF2_s1$Avg_ridership
+predicted_RF2_s1 <- predict(RF_model2_s1, newdata = test_data_RF2_s1)
+
+# Create a scatter plot of actual vs. predicted values
+plot(actual_RF2_s1, predicted_RF2_s1, main = "Actual vs. Predicted", xlab = "Actual", ylab = "Predicted")
+abline(0, 1, col = "red")  # Add a line of perfect prediction (y = x)
+```
+
+
+```{r}
+RF_testing2_s1_sf <- st_as_sf(RF_testing2_s1)
+
+ggplot(RF_testing2_s1_sf) +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8 , color = NA)+
+  geom_sf(aes(color = AbsError_RF2_s1), size = .5) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Bus Stops", color = "Absolute Error Value")
+
+```
+
+```{r}
+result <- RF_testing2_s1_sf[RF_testing2_s1_sf$Month == 'January', ]
+result <- result[result$Predictions_RF2_s1 <= 10, ]
+
+ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.8, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = result, aes(color = Predictions_RF2_s1), size = 1) +
+  scale_color_gradient(low = "#FFBD37", high = "#005357") +
+  mapTheme() +
+  labs(title = "Predicted Avg Ridership under 10 in January: Scenario III", color = "Predicted Avg Ridership with \nProposed Light Rail Routes")
+
+```
+
+
+```{r}
+underperforming_stops_predicted_RF2_s1 <- RF_testing2_s1[RF_testing2_s1$Predictions_RF2_s1 <= 10, ]
+underperformance_counts_predicted_RF2_s1 <- table(underperforming_stops_predicted_RF2_s1$"Stop ID")
+
+# Top 50 Stops for 2023
+top_50_stops_predicted_RF2_s1 <- names(sort(underperformance_counts_predicted_RF2_s1, decreasing = TRUE)[1:50])
+underperforming_top_50_predicted_RF2_s1 <- underperforming_stops_predicted_RF2_s1[underperforming_stops_predicted_RF2_s1$"Stop ID" %in% top_50_stops_predicted_RF2_s1, ]
+
+# Order
+underperforming_top_50_predicted_RF2_s1$"Stop ID" <- factor(underperforming_top_50_predicted_RF2_s1$"Stop ID", levels = rev(top_50_stops_predicted_RF2_s1))
+
+#underperforming_top_50_sf2 <- st_as_sf(underperforming_top_50_predicted2, coords = c("Longitude", "Latitude"), crs = 4326)
+
+#underperforming_top_50_sf2 <- st_as_sf(underperforming_top_50_predicted2, wkt = "geometry", crs = 4326)
+
+#underperforming_top_50_predicted2$geometry <- st_transform(underperforming_top_50_predicted2$geometry, crs = 3358)
+
+
+
+
+underperforming_top_50_predicted_RF2_s1$geometry <- st_transform(underperforming_top_50_predicted_RF2_s1$geometry, crs = 3358)  # NAD83 North Carolina
+
+map_plot_top_50_predicted_RF2_s1 <- ggplot() +
+  geom_sf(data = allTracts_sf, fill = "grey90", alpha = 0.5, color = NA) +
+  geom_sf(data = bus_routes, color = "darkgrey", size = 5, alpha = 0.5) +
+  geom_sf(data = underperforming_top_50_predicted_RF2_s1, aes(geometry = geometry, colour = q5(Predictions_RF2_s1)), size = 2) +
+  scale_color_manual(values = rev(palettebase5),
+                     labels = c("1", "2", "3", "4", "5"),
+                     name = "Quintile\nBreaks") +
+  labs(title = "50 Bus Stops with Lowest Predicted Avg Ridership",
+       fill = "Predictions_RF_s1") +
+  mapTheme()
+
+print(map_plot_top_50_predicted_RF2_s1)
+
+```
